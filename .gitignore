@@ -27,6 +27,12 @@ Thumbs.db
 *.swp
 *.swo
 
+# AI agent / skill leftovers (do not commit)
+.agents/
+.claude/
+.cursor/
+.devin/
+
 # Prisma / Docker (позже)
 *.db
 *.db-journal
