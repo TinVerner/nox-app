@@ -1,0 +1,54 @@
+# Каркас Docker Compose для NOX (шаг 1).
+# Пока нет реальных Dockerfile и кода — сервисы web/api помечены как заготовки.
+# Позже: docker compose up поднимет фронт, API и БД одной командой.
+
+services:
+  # Фронтенд (Vite/React) — порт разработки 5173
+  web:
+    # build: ./client          # раскомментировать, когда появится client/Dockerfile
+    # image: nox-web:dev       # или готовый образ, если build не нужен
+    container_name: nox-web
+    ports:
+      - "5173:5173"
+    # volumes:
+    #   - ./client:/app
+    # depends_on:
+    #   - api
+    profiles:
+      - later                  # не стартует, пока нет приложения
+    # command: echo "web: добавим Vite на следующем шаге"
+
+  # Бэкенд (Node/Express) — порт 3000
+  api:
+    # build: ./server          # раскомментировать, когда появится server/Dockerfile
+    # image: nox-api:dev
+    container_name: nox-api
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.example           # позже заменить на .env
+    # environment:
+    #   DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # depends_on:
+    #   - db
+    profiles:
+      - later
+    # command: echo "api: добавим Express на следующем шаге"
+
+  # База данных PostgreSQL — порт 5432
+  db:
+    image: postgres:16-alpine  # официальный образ; уже можно поднять отдельно
+    container_name: nox-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nox}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-nox}
+    volumes:
+      - nox_pg_data:/var/lib/postgresql/data
+    # profiles не ставим: БД можно поднимать раньше фронта/API
+
+volumes:
+  nox_pg_data:
+    # том Docker, чтобы данные Postgres сохранялись между перезапусками
