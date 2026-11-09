@@ -1,17 +1,13 @@
-# Зависимости Node
 node_modules/
 
-# Секреты и локальные env (копируйте из .env.example)
 .env
 .env.local
 .env.*.local
 
-# Сборка фронта и бэка
 dist/
 build/
 coverage/
 
-# Логи и временные файлы
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -19,7 +15,6 @@ yarn-error.log*
 .tmp/
 .temp/
 
-# ОС и IDE
 .DS_Store
 Thumbs.db
 .idea/
@@ -27,13 +22,11 @@ Thumbs.db
 *.swp
 *.swo
 
-# AI agent / skill leftovers (do not commit)
 .agents/
 .claude/
 .cursor/
 .devin/
 
-# Prisma / Docker (позже)
 *.db
 *.db-journal
 docker-data/
