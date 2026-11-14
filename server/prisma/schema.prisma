@@ -15,3 +15,10 @@ model User {
   role      String   @default("PLAYER")
   createdAt DateTime @default(now())
 }
+
+model News {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+}

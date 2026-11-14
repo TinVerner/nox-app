@@ -22,11 +22,24 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'NOX API hello' })
 })
 
-app.get('/api/me', (req, res) => {
+app.get('/api/news', async (req, res) => {
+  const items = await prisma.news.findMany({ orderBy: { createdAt: 'desc' } })
+  res.json(items)
+})
+
+app.post('/api/news', async (req, res) => {
+  const { title, body } = req.body
+  if (!title || !body) return res.status(400).json({ error: 'title и body обязательны' })
+  const item = await prisma.news.create({ data: { title, body } })
+  res.status(201).json(item)
+})
+
+app.get('/api/me', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'не вошла' })
   }
-  res.json({ userId: req.session.userId })
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  res.json({ id: user.id, email: user.email, nick: user.nick, role: user.role })
 })
 
 app.post('/api/logout', (req, res) => {
