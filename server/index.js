@@ -2,16 +2,31 @@ import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
+import session from 'express-session'
 
 const app = express()
 const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
 
-app.use(cors())
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
 app.use(express.json())
+
+app.use(session({
+  secret: 'nox-dev-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true },
+}))
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'NOX API hello' })
+})
+
+app.get('/api/me', (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'не вошла' })
+  }
+  res.json({ userId: req.session.userId })
 })
 
 app.post('/api/register', async (req, res) => {
@@ -41,6 +56,7 @@ app.post('/api/login', async (req, res) => {
   if (!ok) {
     return res.status(401).json({ error: 'неверный email или пароль' })
   }
+  req.session.userId = user.id
 
   res.json({ id: user.id, email: user.email, nick: user.nick, role: user.role })
 })
