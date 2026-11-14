@@ -29,6 +29,13 @@ app.get('/api/me', (req, res) => {
   res.json({ userId: req.session.userId })
 })
 
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid')
+    res.json({ ok: true })
+  })
+})
+
 app.post('/api/register', async (req, res) => {
   const { email, password, nick } = req.body
   if (!email || !password || !nick) {

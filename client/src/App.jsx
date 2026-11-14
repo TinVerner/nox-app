@@ -25,6 +25,14 @@ function App() {
     setMe(await meRes.json())
   }
 
+  async function logout() {
+    await fetch('http://localhost:3000/api/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    setMe(null)
+  }
+
   async function register(e) {
     e.preventDefault()
     setError('')
@@ -53,6 +61,7 @@ function App() {
       </form>
       {error && <p>{error}</p>}
       {me && <p>Вошла: {me.userId}</p>}
+      {me && <button type="button" onClick={logout}>Выйти</button>}
     </main>
   )
 }
