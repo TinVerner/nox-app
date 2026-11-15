@@ -76,6 +76,32 @@ app.post('/api/rating', async (req, res) => {
   res.status(201).json(item)
 })
 
+app.get('/api/users', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'сначала войди' })
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  if (me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
+  const users = await prisma.user.findMany({
+    select: { id: true, email: true, nick: true, role: true },
+  })
+  res.json(users)
+})
+
+app.patch('/api/users/:id/role', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'сначала войди' })
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  if (me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
+  const { role } = req.body
+  if (!['PLAYER', 'HOST', 'ADMIN'].includes(role)) {
+    return res.status(400).json({ error: 'роль: PLAYER, HOST или ADMIN' })
+  }
+  const user = await prisma.user.update({
+    where: { id: req.params.id },
+    data: { role },
+    select: { id: true, email: true, nick: true, role: true },
+  })
+  res.json(user)
+})
+
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'не вошла' })
@@ -121,6 +147,31 @@ app.post('/api/login', async (req, res) => {
   req.session.userId = user.id
 
   res.json({ id: user.id, email: user.email, nick: user.nick, role: user.role })
+})
+
+async function meOrNull(req) {
+  if (!req.session.userId) return null
+  return prisma.user.findUnique({ where: { id: req.session.userId } })
+}
+
+app.post('/api/games', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me || (me.role !== 'HOST' && me.role !== 'ADMIN')) {
+    return res.status(403).json({ error: 'только ведущий' })
+  }
+  const { title, startsAt, place, seats } = req.body
+  const item = await prisma.game.create({
+    data: { title, startsAt: new Date(startsAt), place, seats: Number(seats) },
+  })
+  res.status(201).json(item)
+})
+
+app.post('/api/news', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me || me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
+  const { title, body } = req.body
+  const item = await prisma.news.create({ data: { title, body } })
+  res.status(201).json(item)
 })
 
 app.listen(PORT, () => {
