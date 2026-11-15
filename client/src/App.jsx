@@ -63,6 +63,14 @@ function App() {
     setScreen('home')
   }
 
+  async function book(gameId) {
+    const res = await fetch(api + '/api/games/' + gameId + '/book', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    alert(res.ok ? 'ты записана' : 'не вышло')
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#eee', fontFamily: 'sans-serif' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid #2a2a2a' }}>
@@ -100,6 +108,7 @@ function App() {
               <article key={game.id}>
                 <h2>{game.title}</h2>
                 <p>{new Date(game.startsAt).toLocaleString('ru')} · {game.place} · мест: {game.seats}</p>
+                {me && <button onClick={() => book(game.id)}>Записаться</button>}
               </article>
             ))}
           </>

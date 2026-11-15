@@ -50,6 +50,19 @@ app.post('/api/games', async (req, res) => {
   res.status(201).json(item)
 })
 
+app.post('/api/games/:id/book', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'сначала войди' })
+  try {
+    const booking = await prisma.booking.create({
+      data: { userId: req.session.userId, gameId: req.params.id },
+    })
+    res.status(201).json(booking)
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'уже записана' })
+    throw err
+  }
+})
+
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'не вошла' })

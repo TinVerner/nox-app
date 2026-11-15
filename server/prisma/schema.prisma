@@ -30,3 +30,12 @@ model Game {
   place    String
   seats    Int
 }
+
+model Booking {
+  id        String   @id @default(cuid())
+  userId    String
+  gameId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, gameId])
+}
