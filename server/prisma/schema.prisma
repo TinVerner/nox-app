@@ -39,3 +39,10 @@ model Booking {
 
   @@unique([userId, gameId])
 }
+
+model PlayerStat {
+  id     String @id @default(cuid())
+  nick   String
+  points Int
+  games  Int
+}

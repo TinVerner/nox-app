@@ -63,6 +63,19 @@ app.post('/api/games/:id/book', async (req, res) => {
   }
 })
 
+app.get('/api/rating', async (req, res) => {
+  const items = await prisma.playerStat.findMany({ orderBy: { points: 'desc' } })
+  res.json(items)
+})
+
+app.post('/api/rating', async (req, res) => {
+  const { nick, points, games } = req.body
+  const item = await prisma.playerStat.create({
+    data: { nick, points: Number(points), games: Number(games) },
+  })
+  res.status(201).json(item)
+})
+
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'не вошла' })

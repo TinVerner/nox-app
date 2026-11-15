@@ -11,6 +11,7 @@ function App() {
   const [error, setError] = useState('')
   const [news, setNews] = useState([])
   const [games, setGames] = useState([])
+  const [rating, setRating] = useState([])
 
   useEffect(() => {
     fetch(api + '/api/me', { credentials: 'include' })
@@ -27,6 +28,11 @@ function App() {
   useEffect(() => {
     if (screen !== 'games') return
     fetch(api + '/api/games').then((r) => r.json()).then(setGames)
+  }, [screen])
+
+  useEffect(() => {
+    if (screen !== 'rating') return
+    fetch(api + '/api/rating').then((r) => r.json()).then(setRating)
   }, [screen])
 
   async function login(e) {
@@ -77,7 +83,7 @@ function App() {
         <b style={{ color: '#C9A84C', fontSize: 24, cursor: 'pointer' }} onClick={() => setScreen('home')}>NOX</b>
         <nav style={{ display: 'flex', gap: 16 }}>
           <span onClick={() => setScreen('games')} style={{ cursor: 'pointer' }}>Игры</span>
-          <span>Рейтинг</span>
+          <span onClick={() => setScreen('rating')} style={{ cursor: 'pointer' }}>Рейтинг</span>
           <span onClick={() => setScreen('news')} style={{ cursor: 'pointer' }}>Новости</span>
         </nav>
         {me ? (
@@ -111,6 +117,17 @@ function App() {
                 {me && <button onClick={() => book(game.id)}>Записаться</button>}
               </article>
             ))}
+          </>
+        )}
+
+        {screen === 'rating' && (
+          <>
+            <h1 style={{ color: '#C9A84C' }}>Рейтинг</h1>
+            <ol>
+              {rating.map((row) => (
+                <li key={row.id}>{row.nick}: {row.points} очков, игр {row.games}</li>
+              ))}
+            </ol>
           </>
         )}
 
