@@ -10,6 +10,7 @@ function App() {
   const [nick, setNick] = useState('')
   const [error, setError] = useState('')
   const [news, setNews] = useState([])
+  const [games, setGames] = useState([])
 
   useEffect(() => {
     fetch(api + '/api/me', { credentials: 'include' })
@@ -20,9 +21,12 @@ function App() {
 
   useEffect(() => {
     if (screen !== 'news') return
-    fetch(api + '/api/news')
-      .then((r) => r.json())
-      .then(setNews)
+    fetch(api + '/api/news').then((r) => r.json()).then(setNews)
+  }, [screen])
+
+  useEffect(() => {
+    if (screen !== 'games') return
+    fetch(api + '/api/games').then((r) => r.json()).then(setGames)
   }, [screen])
 
   async function login(e) {
@@ -64,7 +68,7 @@ function App() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid #2a2a2a' }}>
         <b style={{ color: '#C9A84C', fontSize: 24, cursor: 'pointer' }} onClick={() => setScreen('home')}>NOX</b>
         <nav style={{ display: 'flex', gap: 16 }}>
-          <span>Игры</span>
+          <span onClick={() => setScreen('games')} style={{ cursor: 'pointer' }}>Игры</span>
           <span>Рейтинг</span>
           <span onClick={() => setScreen('news')} style={{ cursor: 'pointer' }}>Новости</span>
         </nav>
@@ -86,6 +90,18 @@ function App() {
           <>
             <h1 style={{ color: '#C9A84C' }}>Клуб интеллектуальной игры «Мафия»</h1>
             <p>Запишись на игру, смотри рейтинг и новости клуба.</p>
+          </>
+        )}
+
+        {screen === 'games' && (
+          <>
+            <h1 style={{ color: '#C9A84C' }}>Игры</h1>
+            {games.map((game) => (
+              <article key={game.id}>
+                <h2>{game.title}</h2>
+                <p>{new Date(game.startsAt).toLocaleString('ru')} · {game.place} · мест: {game.seats}</p>
+              </article>
+            ))}
           </>
         )}
 

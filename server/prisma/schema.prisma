@@ -22,3 +22,11 @@ model News {
   body      String
   createdAt DateTime @default(now())
 }
+
+model Game {
+  id       String   @id @default(cuid())
+  title    String
+  startsAt DateTime
+  place    String
+  seats    Int
+}

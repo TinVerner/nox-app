@@ -34,6 +34,22 @@ app.post('/api/news', async (req, res) => {
   res.status(201).json(item)
 })
 
+app.get('/api/games', async (req, res) => {
+  const items = await prisma.game.findMany({ orderBy: { startsAt: 'asc' } })
+  res.json(items)
+})
+
+app.post('/api/games', async (req, res) => {
+  const { title, startsAt, place, seats } = req.body
+  if (!title || !startsAt || !place || !seats) {
+    return res.status(400).json({ error: 'title, startsAt, place, seats обязательны' })
+  }
+  const item = await prisma.game.create({
+    data: { title, startsAt: new Date(startsAt), place, seats: Number(seats) },
+  })
+  res.status(201).json(item)
+})
+
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'не вошла' })
