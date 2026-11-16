@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 
+const KIND_LABEL = {
+  CLASSIC: 'Классика',
+  TOURNAMENT: 'Турнир',
+  NOVICE: 'Новички',
+}
+
 export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
   const [games, setGames] = useState(null)
 
@@ -26,6 +32,7 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
           <article key={game.id} className="game-row">
             <span className="game-row__date">{new Date(game.startsAt).toLocaleString('ru')}</span>
             <h3 className="game-row__title">{game.title}</h3>
+            <span>{KIND_LABEL[game.kind] || game.kind}</span>
             <span>{game.place}</span>
             <span>мест: {game.seats}</span>
           </article>

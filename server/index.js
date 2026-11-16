@@ -14,6 +14,7 @@ if (!sessionSecret) {
 }
 
 const GAME_STATUS = ['DRAFT', 'PUBLISHED', 'DONE']
+const GAME_KIND = ['CLASSIC', 'TOURNAMENT', 'NOVICE']
 
 const app = express()
 const prisma = new PrismaClient()
@@ -95,12 +96,15 @@ app.post('/api/games', async (req, res) => {
   if (!me || (me.role !== 'HOST' && me.role !== 'ADMIN')) {
     return res.status(403).json({ error: 'только ведущий' })
   }
-  const { title, startsAt, place, seats, status } = req.body
+  const { title, startsAt, place, seats, status, kind } = req.body
   if (!title || !startsAt || !place || !seats) {
     return res.status(400).json({ error: 'title, startsAt, place, seats обязательны' })
   }
   if (status && !GAME_STATUS.includes(status)) {
     return res.status(400).json({ error: 'статус: DRAFT, PUBLISHED или DONE' })
+  }
+  if (kind && !GAME_KIND.includes(kind)) {
+    return res.status(400).json({ error: 'вид: CLASSIC, TOURNAMENT или NOVICE' })
   }
   const item = await prisma.game.create({
     data: {
@@ -109,6 +113,7 @@ app.post('/api/games', async (req, res) => {
       place,
       seats: Number(seats),
       status: status || 'PUBLISHED',
+      kind: kind || 'CLASSIC',
     },
   })
   res.status(201).json(item)
@@ -121,9 +126,12 @@ app.patch('/api/games/:id', async (req, res) => {
   }
   const game = await prisma.game.findUnique({ where: { id: req.params.id } })
   if (!game) return res.status(404).json({ error: 'игра не найдена' })
-  const { title, startsAt, place, seats, status } = req.body
+  const { title, startsAt, place, seats, status, kind } = req.body
   if (status !== undefined && !GAME_STATUS.includes(status)) {
     return res.status(400).json({ error: 'статус: DRAFT, PUBLISHED или DONE' })
+  }
+  if (kind !== undefined && !GAME_KIND.includes(kind)) {
+    return res.status(400).json({ error: 'вид: CLASSIC, TOURNAMENT или NOVICE' })
   }
   const data = {}
   if (title !== undefined) data.title = title
@@ -131,6 +139,7 @@ app.patch('/api/games/:id', async (req, res) => {
   if (place !== undefined) data.place = place
   if (seats !== undefined) data.seats = Number(seats)
   if (status !== undefined) data.status = status
+  if (kind !== undefined) data.kind = kind
   const item = await prisma.game.update({ where: { id: game.id }, data })
   res.json(item)
 })
@@ -199,7 +208,7 @@ app.delete('/api/bookings/:id', async (req, res) => {
   broadcastGames()
 })
 
-app.get('/api/rating', async (req, res) => {
+async function ratingList() {
   const grouped = await prisma.result.groupBy({
     by: ['nick'],
     _sum: { points: true },
@@ -207,15 +216,18 @@ app.get('/api/rating', async (req, res) => {
     orderBy: { _sum: { points: 'desc' } },
   })
   if (grouped.length === 0) {
-    const items = await prisma.playerStat.findMany({ orderBy: { points: 'desc' } })
-    return res.json(items)
+    return prisma.playerStat.findMany({ orderBy: { points: 'desc' } })
   }
-  res.json(grouped.map((row) => ({
+  return grouped.map((row) => ({
     id: row.nick,
     nick: row.nick,
     points: row._sum.points ?? 0,
     games: row._count.nick,
-  })))
+  }))
+}
+
+app.get('/api/rating', async (req, res) => {
+  res.json(await ratingList())
 })
 
 app.get('/api/results', async (req, res) => {
@@ -283,6 +295,22 @@ app.get('/api/members', async (req, res) => {
     select: { id: true, nick: true, role: true },
   })
   res.json(members)
+})
+
+app.get('/api/members/:id', async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, nick: true, role: true },
+  })
+  if (!user) return res.status(404).json({ error: 'не найдено' })
+  const rows = await ratingList()
+  const row = rows.find((item) => item.nick === user.nick)
+  res.json({
+    id: user.id,
+    nick: user.nick,
+    role: user.role,
+    rating: row ? { points: row.points, games: row.games } : null,
+  })
 })
 
 app.get('/api/users', async (req, res) => {

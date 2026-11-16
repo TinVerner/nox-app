@@ -10,6 +10,7 @@ import UsersScreen from './screens/UsersScreen'
 import LoginScreen from './screens/LoginScreen'
 import RegisterScreen from './screens/RegisterScreen'
 import MembersScreen from './screens/MembersScreen'
+import MemberScreen from './screens/MemberScreen'
 import BookingsScreen from './screens/BookingsScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import ResultsScreen from './screens/ResultsScreen'
@@ -27,6 +28,7 @@ function shellFor(user) {
 function App() {
   const [me, setMe] = useState(null)
   const [screen, setScreen] = useState('home')
+  const [memberId, setMemberId] = useState(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordAgain, setPasswordAgain] = useState('')
@@ -151,6 +153,17 @@ function App() {
     alert(res.ok ? 'ты записана' : (data.error || 'не вышло'))
   }
 
+  async function setGameKind(id, kind) {
+    const res = await apiFetch('/api/games/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind }),
+    })
+    if (!res.ok) return alert('не вышло')
+    const updated = await res.json()
+    setGames(games.map((game) => (game.id === id ? updated : game)))
+  }
+
   async function setGameStatus(id, status) {
     const res = await apiFetch('/api/games/' + id, {
       method: 'PATCH',
@@ -173,6 +186,7 @@ function App() {
         startsAt: form.get('startsAt'),
         place: form.get('place'),
         seats: form.get('seats'),
+        kind: form.get('kind') || 'CLASSIC',
       }),
     })
     if (!res.ok) return alert('не вышло')
@@ -214,12 +228,18 @@ function App() {
             onCreate={createGame}
             onLogin={() => setScreen('login')}
             onStatus={setGameStatus}
+            onKind={setGameKind}
           />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
         {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} />}
         {screen === 'users' && <UsersScreen />}
-        {screen === 'members' && <MembersScreen />}
+        {screen === 'members' && (
+          <MembersScreen onOpen={(id) => { setMemberId(id); setScreen('member') }} />
+        )}
+        {screen === 'member' && (
+          <MemberScreen memberId={memberId} onBack={() => setScreen('members')} />
+        )}
         {screen === 'bookings' && <BookingsScreen />}
         {screen === 'profile' && <ProfileScreen me={me} />}
         {screen === 'results' && <ResultsScreen />}

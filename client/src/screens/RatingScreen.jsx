@@ -1,10 +1,20 @@
+import { useState } from 'react'
+
 export default function RatingScreen({ rating }) {
+  const [open, setOpen] = useState(false)
   const top = rating.slice(0, 3)
   const rest = rating.slice(3)
 
   return (
     <section className="screen">
       <h1>Рейтинг</h1>
+      <button type="button" onClick={() => setOpen(true)}>Как считается</button>
+      {open && (
+        <div>
+          <p>Очки игрока — сумма очков, которые ведущий внёс в результатах вечеров. Число игр — сколько таких результатов есть у ника. Пока результатов нет, показан прежний список.</p>
+          <button type="button" onClick={() => setOpen(false)}>Закрыть</button>
+        </div>
+      )}
       <div className="podium">
         {top.map((row, index) => (
           <article key={row.id} className={`podium-card podium-card--${index + 1}`}>

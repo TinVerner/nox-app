@@ -7,7 +7,7 @@ const ROLE = {
   ADMIN: 'Администратор',
 }
 
-export default function MembersScreen() {
+export default function MembersScreen({ onOpen }) {
   const [members, setMembers] = useState(null)
 
   useEffect(() => {
@@ -25,10 +25,10 @@ export default function MembersScreen() {
       ) : (
         <div className="member-grid">
           {members.map((member) => (
-            <article key={member.id} className="member-card">
+            <button key={member.id} type="button" className="member-card" onClick={() => onOpen(member.id)}>
               <h2>{member.nick}</h2>
               <p>{ROLE[member.role] || member.role}</p>
-            </article>
+            </button>
           ))}
         </div>
       )}

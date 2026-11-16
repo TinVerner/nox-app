@@ -344,6 +344,14 @@ button.brand:hover {
   background: #181818;
 }
 
+button.member-card {
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  min-height: 0;
+  border-radius: 0;
+}
+
 .member-card h2 {
   margin: 0 0 6px;
   color: var(--accent);
