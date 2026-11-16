@@ -1,9 +1,11 @@
 import 'dotenv/config'
+import http from 'http'
 import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 import session from 'express-session'
+import { WebSocketServer } from 'ws'
 import { ensureAutumn } from './season.js'
 
 const sessionSecret = process.env.SESSION_SECRET
@@ -41,6 +43,38 @@ app.post('/api/news', async (req, res) => {
   if (!title || !body) return res.status(400).json({ error: 'title и body обязательны' })
   const item = await prisma.news.create({ data: { title, body } })
   res.status(201).json(item)
+})
+
+app.get('/api/news/:id/comments', async (req, res) => {
+  const comments = await prisma.comment.findMany({
+    where: { newsId: req.params.id },
+    orderBy: { createdAt: 'asc' },
+    include: { user: { select: { nick: true } } },
+  })
+  res.json(comments.map((comment) => ({
+    id: comment.id,
+    body: comment.body,
+    createdAt: comment.createdAt,
+    nick: comment.user.nick,
+  })))
+})
+
+app.post('/api/news/:id/comments', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'сначала войди' })
+  const text = String(req.body.body || '').trim()
+  if (!text) return res.status(400).json({ error: 'комментарий пустой' })
+  const news = await prisma.news.findUnique({ where: { id: req.params.id } })
+  if (!news) return res.status(404).json({ error: 'новость не найдена' })
+  const comment = await prisma.comment.create({
+    data: { newsId: news.id, userId: req.session.userId, body: text },
+    include: { user: { select: { nick: true } } },
+  })
+  res.status(201).json({
+    id: comment.id,
+    body: comment.body,
+    createdAt: comment.createdAt,
+    nick: comment.user.nick,
+  })
 })
 
 app.get('/api/games', async (req, res) => {
@@ -125,6 +159,7 @@ app.post('/api/games/:id/book', async (req, res) => {
       data: { userId: req.session.userId, gameId: game.id, status },
     })
     res.status(201).json(booking)
+    broadcastGames()
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'уже записана' })
     throw err
@@ -161,6 +196,7 @@ app.delete('/api/bookings/:id', async (req, res) => {
   if (booking.userId !== req.session.userId) return res.status(403).json({ error: 'нельзя' })
   await prisma.booking.delete({ where: { id: booking.id } })
   res.json({ ok: true })
+  broadcastGames()
 })
 
 app.get('/api/rating', async (req, res) => {
@@ -413,6 +449,16 @@ app.post('/api/news', async (req, res) => {
   res.status(201).json(item)
 })
 
-app.listen(PORT, () => {
+const server = http.createServer(app)
+const sockets = new WebSocketServer({ server, path: '/ws' })
+
+function broadcastGames() {
+  const payload = JSON.stringify({ type: 'games' })
+  for (const client of sockets.clients) {
+    if (client.readyState === 1) client.send(payload)
+  }
+}
+
+server.listen(PORT, () => {
   console.log(`NOX API http://localhost:${PORT}`)
 })

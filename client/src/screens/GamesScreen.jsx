@@ -4,7 +4,7 @@ const STATUS_LABEL = {
   DONE: 'Завершён',
 }
 
-export default function GamesScreen({ me, games, onBook, onCreate, onLogin, onStatus }) {
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onLogin, onStatus }) {
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const title = me?.role === 'HOST' ? 'Вечера' : 'Расписание'
 
@@ -20,6 +20,7 @@ export default function GamesScreen({ me, games, onBook, onCreate, onLogin, onSt
           <button>Создать игру</button>
         </form>
       )}
+      <div key={reloadKey}>
       {games.map((game) => (
         <article key={game.id} className="game-row">
           <span className="game-row__date">{new Date(game.startsAt).toLocaleString('ru')}</span>
@@ -37,6 +38,7 @@ export default function GamesScreen({ me, games, onBook, onCreate, onLogin, onSt
           )}
         </article>
       ))}
+      </div>
     </section>
   )
 }

@@ -15,6 +15,7 @@ model User {
   role      String   @default("PLAYER")
   blocked   Boolean  @default(false)
   createdAt DateTime @default(now())
+  comments  Comment[]
 }
 
 model ClubSettings {
@@ -25,8 +26,19 @@ model ClubSettings {
 }
 
 model News {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   title     String
+  body      String
+  createdAt DateTime  @default(now())
+  comments  Comment[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  newsId    String
+  news      News     @relation(fields: [newsId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   body      String
   createdAt DateTime @default(now())
 }

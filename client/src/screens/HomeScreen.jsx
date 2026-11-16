@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 
-export default function HomeScreen({ onOpenSchedule }) {
+export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
   const [games, setGames] = useState(null)
 
   useEffect(() => {
@@ -9,7 +9,7 @@ export default function HomeScreen({ onOpenSchedule }) {
       .then((r) => (r.ok ? r.json() : []))
       .then(setGames)
       .catch(() => setGames([]))
-  }, [])
+  }, [reloadKey])
 
   const next = (games || []).filter((game) => new Date(game.startsAt).getTime() >= Date.now())
 

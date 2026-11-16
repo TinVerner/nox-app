@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from './api'
 import TopNav from './components/TopNav'
 import SideNav from './components/SideNav'
@@ -34,8 +34,11 @@ function App() {
   const [error, setError] = useState('')
   const [news, setNews] = useState([])
   const [games, setGames] = useState([])
+  const [gamesReload, setGamesReload] = useState(0)
   const [rating, setRating] = useState([])
   const shell = shellFor(me)
+  const screenRef = useRef(screen)
+  screenRef.current = screen
 
   useEffect(() => {
     apiFetch('/api/me')
@@ -60,7 +63,35 @@ function App() {
   useEffect(() => {
     if (screen !== 'games') return
     apiFetch('/api/games').then((r) => r.json()).then(setGames)
-  }, [screen])
+  }, [screen, gamesReload])
+
+  useEffect(() => {
+    let socket
+    try {
+      socket = new WebSocket('ws://localhost:3000/ws')
+      socket.onmessage = (event) => {
+        let data
+        try {
+          data = JSON.parse(event.data)
+        } catch {
+          return
+        }
+        if (data?.type !== 'games') return
+        const current = screenRef.current
+        if (current !== 'games' && current !== 'home') return
+        setGamesReload((n) => n + 1)
+      }
+    } catch {
+      return
+    }
+    return () => {
+      try {
+        socket.close()
+      } catch {
+        // the schedule still loads through the normal fetch
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (screen !== 'rating') return
@@ -171,11 +202,14 @@ function App() {
       )}
 
       <main className="app-main">
-        {screen === 'home' && <HomeScreen onOpenSchedule={() => setScreen('games')} />}
+        {screen === 'home' && (
+          <HomeScreen onOpenSchedule={() => setScreen('games')} reloadKey={gamesReload} />
+        )}
         {screen === 'games' && (
           <GamesScreen
             me={me}
             games={games}
+            reloadKey={gamesReload}
             onBook={book}
             onCreate={createGame}
             onLogin={() => setScreen('login')}
