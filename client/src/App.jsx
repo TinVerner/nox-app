@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from './api'
-import Header from './components/Header'
+import TopNav from './components/TopNav'
+import SideNav from './components/SideNav'
 import HomeScreen from './screens/HomeScreen'
 import GamesScreen from './screens/GamesScreen'
 import RatingScreen from './screens/RatingScreen'
@@ -8,18 +9,33 @@ import NewsScreen from './screens/NewsScreen'
 import UsersScreen from './screens/UsersScreen'
 import LoginScreen from './screens/LoginScreen'
 import RegisterScreen from './screens/RegisterScreen'
+import MembersScreen from './screens/MembersScreen'
+import BookingsScreen from './screens/BookingsScreen'
+import ProfileScreen from './screens/ProfileScreen'
+import ResultsScreen from './screens/ResultsScreen'
+import SeasonsScreen from './screens/SeasonsScreen'
+import OverviewScreen from './screens/OverviewScreen'
+import SettingsScreen from './screens/SettingsScreen'
+
+function shellFor(user) {
+  if (!user) return 'guest'
+  if (user.role === 'HOST') return 'host'
+  if (user.role === 'ADMIN') return 'admin'
+  return 'player'
+}
 
 function App() {
   const [me, setMe] = useState(null)
   const [screen, setScreen] = useState('home')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordAgain, setPasswordAgain] = useState('')
   const [nick, setNick] = useState('')
   const [error, setError] = useState('')
   const [news, setNews] = useState([])
   const [games, setGames] = useState([])
   const [rating, setRating] = useState([])
-  const [users, setUsers] = useState([])
+  const shell = shellFor(me)
 
   useEffect(() => {
     apiFetch('/api/me')
@@ -27,6 +43,14 @@ function App() {
       .then(setMe)
       .catch(() => setMe(null))
   }, [])
+
+  useEffect(() => {
+    if (!me) return
+    setScreen((current) => {
+      if (current !== 'home') return current
+      return me.role === 'ADMIN' ? 'overview' : 'games'
+    })
+  }, [me])
 
   useEffect(() => {
     if (screen !== 'news') return
@@ -43,16 +67,13 @@ function App() {
     apiFetch('/api/rating').then((r) => r.json()).then(setRating)
   }, [screen])
 
-  useEffect(() => {
-    if (screen !== 'users') return
-    apiFetch('/api/users')
-      .then((r) => r.json())
-      .then(setUsers)
-  }, [screen])
-
   async function login(e) {
     e.preventDefault()
     setError('')
+    if (!email.trim() || !password.trim()) {
+      setError('Заполни поля')
+      return
+    }
     const res = await apiFetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -61,12 +82,20 @@ function App() {
     const data = await res.json()
     if (!res.ok) return setError(data.error || 'ошибка')
     setMe(data)
-    setScreen('home')
+    setScreen(data.role === 'ADMIN' ? 'overview' : 'games')
   }
 
   async function register(e) {
     e.preventDefault()
     setError('')
+    if (!nick.trim() || !email.trim() || !password.trim() || !passwordAgain.trim()) {
+      setError('Заполни поля')
+      return
+    }
+    if (password !== passwordAgain) {
+      setError('Пароли не совпали')
+      return
+    }
     const res = await apiFetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,18 +116,19 @@ function App() {
     const res = await apiFetch('/api/games/' + gameId + '/book', {
       method: 'POST',
     })
-    alert(res.ok ? 'ты записана' : 'не вышло')
+    const data = await res.json().catch(() => ({}))
+    alert(res.ok ? 'ты записана' : (data.error || 'не вышло'))
   }
 
-  async function setRole(id, role) {
-    const res = await apiFetch('/api/users/' + id + '/role', {
+  async function setGameStatus(id, status) {
+    const res = await apiFetch('/api/games/' + id, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify({ status }),
     })
+    if (!res.ok) return alert('не вышло')
     const updated = await res.json()
-    if (!res.ok) return alert(updated.error || 'не вышло')
-    setUsers(users.map((u) => (u.id === id ? updated : u)))
+    setGames(games.map((game) => (game.id === id ? updated : game)))
   }
 
   async function createGame(e) {
@@ -133,17 +163,35 @@ function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111', color: '#eee', fontFamily: 'sans-serif' }}>
-      <Header me={me} setScreen={setScreen} logout={logout} />
+    <div className={shell === 'guest' ? 'app-shell app-shell--guest' : 'app-shell app-shell--side'}>
+      {shell === 'guest' ? (
+        <TopNav screen={screen} setScreen={setScreen} />
+      ) : (
+        <SideNav role={shell} screen={screen} setScreen={setScreen} logout={logout} />
+      )}
 
-      <main style={{ padding: 40 }}>
-        {screen === 'home' && <HomeScreen />}
+      <main className="app-main">
+        {screen === 'home' && <HomeScreen onOpenSchedule={() => setScreen('games')} />}
         {screen === 'games' && (
-          <GamesScreen me={me} games={games} onBook={book} onCreate={createGame} />
+          <GamesScreen
+            me={me}
+            games={games}
+            onBook={book}
+            onCreate={createGame}
+            onLogin={() => setScreen('login')}
+            onStatus={setGameStatus}
+          />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
         {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} />}
-        {screen === 'users' && <UsersScreen users={users} onSetRole={setRole} />}
+        {screen === 'users' && <UsersScreen />}
+        {screen === 'members' && <MembersScreen />}
+        {screen === 'bookings' && <BookingsScreen />}
+        {screen === 'profile' && <ProfileScreen me={me} />}
+        {screen === 'results' && <ResultsScreen />}
+        {screen === 'seasons' && <SeasonsScreen />}
+        {screen === 'overview' && <OverviewScreen setScreen={setScreen} />}
+        {screen === 'settings' && <SettingsScreen />}
         {screen === 'login' && (
           <LoginScreen
             email={email}
@@ -159,10 +207,12 @@ function App() {
             email={email}
             nick={nick}
             password={password}
+            passwordAgain={passwordAgain}
             error={error}
             setEmail={setEmail}
             setNick={setNick}
             setPassword={setPassword}
+            setPasswordAgain={setPasswordAgain}
             onSubmit={register}
           />
         )}

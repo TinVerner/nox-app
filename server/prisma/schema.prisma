@@ -13,7 +13,15 @@ model User {
   password  String
   nick      String
   role      String   @default("PLAYER")
+  blocked   Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model ClubSettings {
+  id           String  @id @default(cuid())
+  name         String  @default("NOX")
+  bookingOpen  Boolean @default(true)
+  waitlistSize Int     @default(4)
 }
 
 model News {
@@ -23,18 +31,39 @@ model News {
   createdAt DateTime @default(now())
 }
 
+model Season {
+  id     String  @id @default(cuid())
+  name   String
+  closed Boolean @default(false)
+  games  Game[]
+}
+
 model Game {
   id       String   @id @default(cuid())
   title    String
   startsAt DateTime
   place    String
   seats    Int
+  status   String   @default("PUBLISHED")
+  seasonId String?
+  season   Season?  @relation(fields: [seasonId], references: [id])
+  results  Result[]
+}
+
+model Result {
+  id        String   @id @default(cuid())
+  gameId    String
+  nick      String
+  points    Int
+  createdAt DateTime @default(now())
+  game      Game     @relation(fields: [gameId], references: [id])
 }
 
 model Booking {
   id        String   @id @default(cuid())
   userId    String
   gameId    String
+  status    String   @default("CONFIRMED")
   createdAt DateTime @default(now())
 
   @@unique([userId, gameId])

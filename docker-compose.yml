@@ -1,19 +1,21 @@
 services:
   web:
+    build: ./client
     container_name: nox-web
     ports:
       - "5173:5173"
-    profiles:
-      - later
+    depends_on:
+      - api
 
   api:
+    build: ./server
     container_name: nox-api
     ports:
       - "3000:3000"
     env_file:
-      - .env
-    profiles:
-      - later
+      - ./server/.env
+    depends_on:
+      - db
 
   db:
     image: postgres:16-alpine
