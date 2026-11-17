@@ -7,6 +7,7 @@ const MENUS = {
       { screen: 'profile', label: 'Профиль' },
       { screen: 'news', label: 'Новости' },
       { screen: 'rating', label: 'Рейтинг' },
+      { screen: 'catalog', label: 'Каталог' },
     ],
   },
   host: {
@@ -16,6 +17,7 @@ const MENUS = {
       { screen: 'results', label: 'Результаты' },
       { screen: 'seasons', label: 'Сезоны' },
       { screen: 'players', label: 'Игроки' },
+      { screen: 'rules', label: 'Правила' },
     ],
   },
   admin: {
@@ -24,6 +26,7 @@ const MENUS = {
       { screen: 'overview', label: 'Обзор' },
       { screen: 'users', label: 'Пользователи' },
       { screen: 'settings', label: 'Настройки' },
+      { screen: 'sanctions', label: 'Санкции' },
     ],
   },
 }

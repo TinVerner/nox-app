@@ -19,11 +19,15 @@ import SeasonsScreen from './screens/SeasonsScreen'
 import OverviewScreen from './screens/OverviewScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
+import CatalogScreen from './screens/CatalogScreen'
+import SanctionsScreen from './screens/SanctionsScreen'
+import RulesScreen from './screens/RulesScreen'
 import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
   'bookings', 'profile', 'results', 'seasons', 'overview', 'settings', 'login', 'register',
+  'catalog', 'sanctions', 'rules',
 ])
 
 function shellFor(user) {
@@ -31,6 +35,15 @@ function shellFor(user) {
   if (user.role === 'HOST') return 'host'
   if (user.role === 'ADMIN') return 'admin'
   return 'player'
+}
+
+function passwordMeetsRules(password) {
+  return (
+    password.length >= 8 &&
+    /\d/.test(password) &&
+    /[A-ZА-ЯЁ]/.test(password) &&
+    /[^0-9A-Za-zА-Яа-яЁё]/.test(password)
+  )
 }
 
 function App() {
@@ -49,6 +62,8 @@ function App() {
   const [games, setGames] = useState([])
   const [gamesReload, setGamesReload] = useState(0)
   const [rating, setRating] = useState([])
+  const [notice, setNotice] = useState('')
+  const [noticeKey, setNoticeKey] = useState(0)
   const shell = shellFor(me)
   const screenRef = useRef(screen)
   const previousScreen = useRef('home')
@@ -134,6 +149,10 @@ function App() {
           return
         }
         if (data?.type !== 'games') return
+        if (data.notice) {
+          setNotice(data.notice)
+          setNoticeKey((key) => key + 1)
+        }
         const current = screenRef.current
         if (current !== 'games' && current !== 'home') return
         setGamesReload((n) => n + 1)
@@ -149,6 +168,12 @@ function App() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!notice) return undefined
+    const timer = window.setTimeout(() => setNotice(''), 4000)
+    return () => window.clearTimeout(timer)
+  }, [notice, noticeKey])
 
   useEffect(() => {
     if (screen !== 'rating') return
@@ -196,6 +221,10 @@ function App() {
       setError('Пароли не совпали')
       return
     }
+    if (!passwordMeetsRules(password)) {
+      setError('Пароль не соответствует требованиям: минимум 8 символов, цифра, заглавная буква и спецсимвол')
+      return
+    }
     authLock.current = true
     setAuthBusy(true)
     try {
@@ -218,18 +247,20 @@ function App() {
 
   async function logout() {
     await apiFetch('/api/logout', { method: 'POST' })
+    setNotice('')
     setMe(null)
     go('home')
   }
 
-  async function book(gameId) {
+  async function book(gameId, guests) {
     const res = await apiFetch('/api/games/' + gameId + '/book', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guests }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, error: data.error || 'не вышло' }
-    alert(data.status === 'WAITING' ? 'ты в листе ожидания' : 'ты записана')
-    return { ok: true }
+    return { ok: true, id: data.id }
   }
 
   async function createGame(payload) {
@@ -291,6 +322,7 @@ function App() {
       )}
 
       <main className="app-main">
+        {notice ? <p className="notice" role="status">{notice}</p> : null}
         {!KNOWN_SCREENS.has(screen) && (
           <NotFoundScreen
             onHome={() => go(roleHome())}
@@ -315,7 +347,7 @@ function App() {
         {screen === 'rating' && <RatingScreen rating={rating} />}
         {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} />}
         {screen === 'users' && <UsersScreen />}
-        {screen === 'members' && (
+        {screen === 'members' && (shell === 'host' || shell === 'admin') && (
           <MembersScreen onOpen={(id) => { setMemberId(id); setMemberBack('members'); go('member') }} />
         )}
         {screen === 'players' && (
@@ -330,6 +362,9 @@ function App() {
         {screen === 'seasons' && <SeasonsScreen />}
         {screen === 'overview' && <OverviewScreen setScreen={go} />}
         {screen === 'settings' && <SettingsScreen />}
+        {screen === 'catalog' && <CatalogScreen />}
+        {screen === 'sanctions' && <SanctionsScreen />}
+        {screen === 'rules' && <RulesScreen />}
         {screen === 'login' && (
           <LoginScreen
             email={email}

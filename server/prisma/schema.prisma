@@ -14,8 +14,12 @@ model User {
   nick      String
   role      String   @default("PLAYER")
   blocked   Boolean  @default(false)
+  rank      String?
+  bonus     Int      @default(0)
   createdAt DateTime @default(now())
   comments  Comment[]
+  reactions Reaction[]
+  sanctions Sanction[]
 }
 
 model ClubSettings {
@@ -31,6 +35,7 @@ model News {
   body      String
   createdAt DateTime  @default(now())
   comments  Comment[]
+  reactions Reaction[]
 }
 
 model Comment {
@@ -79,8 +84,45 @@ model Booking {
   gameId    String
   status    String   @default("CONFIRMED")
   createdAt DateTime @default(now())
+  guests    BookingGuest[]
 
   @@unique([userId, gameId])
+}
+
+model BookingGuest {
+  id          String   @id @default(cuid())
+  bookingId   String
+  displayName String
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  newsId    String
+  userId    String
+  createdAt DateTime @default(now())
+  news      News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([newsId, userId])
+}
+
+model Sanction {
+  id         String   @id @default(cuid())
+  userId     String
+  kind       String
+  reason     String
+  bonusDelta Int      @default(0)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model CatalogItem {
+  id     String @id @default(cuid())
+  name   String
+  detail String @default("")
+  price  Int
 }
 
 model PlayerStat {

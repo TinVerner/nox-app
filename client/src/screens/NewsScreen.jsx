@@ -37,6 +37,7 @@ export default function NewsScreen({ me, news, onCreate }) {
   const [comments, setComments] = useState({})
   const [drafts, setDrafts] = useState({})
   const [editor, setEditor] = useState(false)
+  const [likes, setLikes] = useState({})
 
   useEffect(() => {
     if (!news.length) {
@@ -72,6 +73,14 @@ export default function NewsScreen({ me, news, onCreate }) {
     setDrafts((prev) => ({ ...prev, [newsId]: '' }))
   }
 
+  async function react(item) {
+    if (!me) return
+    const res = await apiFetch('/api/news/' + item.id + '/reactions', { method: 'POST' })
+    if (!res.ok) return
+    const data = await res.json()
+    setLikes((prev) => ({ ...prev, [item.id]: data }))
+  }
+
   return (
     <section className="screen">
       <div className="page-head">
@@ -88,6 +97,9 @@ export default function NewsScreen({ me, news, onCreate }) {
         <article key={item.id} className="panel news-card">
           <h2>{item.title}</h2>
           <p>{item.body}</p>
+          <button type="button" className="btn-ghost btn-s" onClick={() => react(item)} disabled={!me}>
+            {(likes[item.id]?.liked ?? item.liked) ? 'Нравится' : 'Отметить'} · {likes[item.id]?.likes ?? item.likes ?? 0}
+          </button>
           {(comments[item.id] || []).map((row) => (
             <p className="comment" key={row.id}>{row.nick}: {row.body}</p>
           ))}

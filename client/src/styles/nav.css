@@ -34,6 +34,14 @@
 
 .app-shell--side .app-main > .site-foot { padding: 18px 0 0; }
 
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+}
+
 .app-shell--guest .app-main { padding: 0; }
 
 .app-shell--guest .screen { padding: 36px 40px 72px; }

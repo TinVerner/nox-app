@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Modal from '../components/Modal'
+import CancelBookingDialog from '../components/CancelBookingDialog'
 import { apiFetch } from '../api'
 
 const FILTERS = [
@@ -126,9 +127,14 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [kindFilter, setKindFilter] = useState('ALL')
   const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
-  const [bookError, setBookError] = useState('')
   const [booking, setBooking] = useState(false)
   const [bookedIds, setBookedIds] = useState([])
+  const [bookingByGame, setBookingByGame] = useState({})
+  const [bookResult, setBookResult] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [canceling, setCanceling] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+  const [guestDraft, setGuestDraft] = useState('')
   const [editor, setEditor] = useState(null)
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
@@ -136,16 +142,26 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   useEffect(() => {
     if (!me) {
       setBookedIds([])
+      setBookingByGame({})
       return
     }
     let cancelled = false
     apiFetch('/api/bookings')
       .then((response) => (response.ok ? response.json() : []))
       .then((rows) => {
-        if (!cancelled) setBookedIds(rows.map((row) => row.gameId).filter(Boolean))
+        if (cancelled) return
+        const map = {}
+        for (const row of rows) {
+          if (row.gameId && row.id) map[row.gameId] = row.id
+        }
+        setBookingByGame(map)
+        setBookedIds(Object.keys(map))
       })
       .catch(() => {
-        if (!cancelled) setBookedIds([])
+        if (!cancelled) {
+          setBookingByGame({})
+          setBookedIds([])
+        }
       })
     return () => {
       cancelled = true
@@ -154,27 +170,67 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
 
   function openBooking(game) {
     if (bookedIds.includes(game.id)) return
-    setBookError('')
+    setBookResult(null)
+    setGuestDraft('')
     setPending(game)
+  }
+
+  function closeBooking() {
+    if (booking) return
+    setPending(null)
+    setBookResult(null)
   }
 
   async function confirmBooking() {
     if (booking || !pending) return
     setBooking(true)
-    setBookError('')
     try {
-      const result = await onBook(pending.id)
+      const result = await onBook(pending.id, guestDraft)
       if (!result?.ok) {
         if (result?.error === 'уже записана') {
-          setBookedIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]))
+          const rows = await apiFetch('/api/bookings').then((response) => (response.ok ? response.json() : [])).catch(() => [])
+          const map = {}
+          for (const row of rows) {
+            if (row.gameId && row.id) map[row.gameId] = row.id
+          }
+          setBookingByGame(map)
+          setBookedIds(Object.keys(map))
         }
-        setBookError(result?.error || 'не вышло')
+        setBookResult({ ok: false, error: result?.error || 'не вышло' })
         return
       }
       setBookedIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]))
-      setPending(null)
+      if (result.id) {
+        setBookingByGame((map) => ({ ...map, [pending.id]: result.id }))
+      }
+      setBookResult({ ok: true })
     } finally {
       setBooking(false)
+    }
+  }
+
+  async function confirmCancel() {
+    if (canceling || !cancelTarget) return
+    const bookingId = bookingByGame[cancelTarget.id]
+    if (!bookingId) return
+    setCanceling(true)
+    setCancelError('')
+    try {
+      const res = await apiFetch('/api/bookings/' + bookingId, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCancelError(data.error || 'не вышло')
+        return
+      }
+      setBookingByGame((map) => {
+        const next = { ...map }
+        delete next[cancelTarget.id]
+        return next
+      })
+      setBookedIds((ids) => ids.filter((id) => id !== cancelTarget.id))
+      setCancelTarget(null)
+    } finally {
+      setCanceling(false)
     }
   }
 
@@ -242,14 +298,20 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               {staff && (
                 <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
               )}
-              <button
-                type="button"
-                className="btn-primary btn-s"
-                disabled={bookedIds.includes(game.id)}
-                onClick={() => (me ? openBooking(game) : onLogin())}
-              >
-                {bookedIds.includes(game.id) ? 'Вы записаны' : bookLabel(game)}
-              </button>
+              {bookedIds.includes(game.id) ? (
+                <>
+                  <button type="button" className="btn-primary btn-s" disabled>Вы записаны</button>
+                  <button type="button" className="btn-ghost btn-s" onClick={() => { setCancelError(''); setCancelTarget(game) }}>Отменить</button>
+                </>
+              ) : !staff && (
+                <button
+                  type="button"
+                  className="btn-primary btn-s"
+                  onClick={() => (me ? openBooking(game) : onLogin())}
+                >
+                  {bookLabel(game)}
+                </button>
+              )}
             </div>
             {staff && (
               <div className="night-card__tools">
@@ -261,18 +323,41 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
       })}
       </div>
       {pending && (
-        <Modal title={pending.title} eyebrow="Запись" onClose={() => { if (!booking) setPending(null) }}>
-          <p>{new Date(pending.startsAt).toLocaleString('ru')}</p>
-          <p className="muted">{pending.place}</p>
-          <p className="price">{pending.price > 0 ? `${pending.price} BYN` : '0 BYN'}</p>
-          <p>{pending.taken ?? 0} из {pending.seats}</p>
-          {(pending.taken ?? 0) >= pending.seats && !bookError && <p>Свободных мест нет. Вы попадёте в лист ожидания.</p>}
-          {bookError && <p className="error">{bookError}</p>}
-          <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={() => setPending(null)} disabled={booking}>Отмена</button>
-            <button type="button" className="btn-primary" onClick={confirmBooking} disabled={booking}>{bookLabel(pending)}</button>
-          </div>
+        <Modal title={pending.title} eyebrow="Запись" onClose={closeBooking}>
+          {bookResult ? (
+            <>
+              {bookResult.ok ? (
+                <p>Вы записаны на игру</p>
+              ) : (
+                <p className="error">вы не записались. {bookResult.error}</p>
+              )}
+              <div className="modal-actions">
+                <button type="button" className="btn-primary" onClick={closeBooking}>Ок</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{new Date(pending.startsAt).toLocaleString('ru')}</p>
+              <p className="muted">{pending.place}</p>
+              <p className="price">{pending.price > 0 ? `${pending.price} BYN` : '0 BYN'}</p>
+              <p>{pending.taken ?? 0} из {pending.seats}</p>
+              {(pending.taken ?? 0) >= pending.seats && <p>Свободных мест нет. Вы попадёте в лист ожидания.</p>}
+              <input value={guestDraft} onChange={(event) => setGuestDraft(event.target.value)} placeholder="гости через запятую" />
+              <div className="modal-actions">
+                <button type="button" className="btn-ghost" onClick={closeBooking} disabled={booking}>Отмена</button>
+                <button type="button" className="btn-primary" onClick={confirmBooking} disabled={booking}>{bookLabel(pending)}</button>
+              </div>
+            </>
+          )}
         </Modal>
+      )}
+      {cancelTarget && (
+        <CancelBookingDialog
+          busy={canceling}
+          error={cancelError}
+          onClose={() => { if (!canceling) setCancelTarget(null) }}
+          onConfirm={confirmCancel}
+        />
       )}
       {editor && (
         <GameModal

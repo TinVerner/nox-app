@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
+import { rankLabel } from '../ranks'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -33,6 +34,7 @@ export default function MemberScreen({ memberId, onBack }) {
         <div className="panel member-panel">
           <p className="eyebrow">{ROLE[member.role] || member.role}</p>
           <h1>{member.nick}</h1>
+          {rankLabel(member.rank) ? <p>{rankLabel(member.rank)}</p> : null}
           {member.rating ? (
             <p>{member.rating.points} очков, игр {member.rating.games}</p>
           ) : (

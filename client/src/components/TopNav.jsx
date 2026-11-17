@@ -2,7 +2,6 @@ const LINKS = [
   { screen: 'home', label: 'Главная' },
   { screen: 'games', label: 'Расписание' },
   { screen: 'rating', label: 'Рейтинг' },
-  { screen: 'members', label: 'Участники' },
 ]
 
 export default function TopNav({ screen, setScreen }) {

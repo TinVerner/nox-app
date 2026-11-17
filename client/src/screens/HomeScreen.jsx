@@ -43,6 +43,20 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
           <a className="btn btn-secondary" href="#upcoming">Подробнее</a>
         </div>
       </div>
+      <div className="screen-block promo" id="promo">
+        <p className="eyebrow">Клуб CRIME</p>
+        <h2 className="page-title">Абонементы и сертификаты</h2>
+        <p>Абонементы на открытые игры вы также можете приобрести у нас и играть с еще большим удовольствием, ведь это хорошая экономия.</p>
+        <ul className="promo-list">
+          <li>Абонемент на 5 посещений — 160 BYN</li>
+          <li>Абонемент безлимит на 1 месяц — 300 BYN</li>
+          <li>Абонемент безлимит на 6 месяцев — 1500 BYN</li>
+          <li>Абонемент безлимит на 12 месяцев — 3000 BYN</li>
+          <li>Подарочный сертификат на 1 и 2 персоны — 35 BYN и 70 BYN, действителен в течение 1 месяца</li>
+          <li>Сертификат на закрытую игру, любая из 6 программ — от 400 BYN до 1400 BYN</li>
+          <li>Именные игровые маски под заказ — 80 BYN</li>
+        </ul>
+      </div>
       <div className="screen-block" id="upcoming">
         <p className="eyebrow">Ближайшие вечера</p>
         <h2 className="page-title">Расписание</h2>

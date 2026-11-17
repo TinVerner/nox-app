@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 import Modal from '../components/Modal'
+import { RANKS } from '../ranks'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -41,6 +42,19 @@ export default function UsersScreen() {
     if (!res.ok) return setError(updated.error || 'не вышло')
     setError('')
     apply(updated)
+  }
+
+  async function setRank(id, rank) {
+    const res = await apiFetch('/api/members/' + id + '/rank', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rank }),
+    })
+    const updated = await res.json()
+    if (!res.ok) return setError(updated.error || 'не вышло')
+    setError('')
+    setUsers((list) => (list || []).map((user) => (user.id === id ? { ...user, rank: updated.rank } : user)))
+    setSelected((current) => (current && current.id === id ? { ...current, rank: updated.rank } : current))
   }
 
   async function setBlocked(id, blocked) {
@@ -97,6 +111,13 @@ export default function UsersScreen() {
           <p className={selected.blocked ? 'status-wait' : 'status-ok'}>
             {selected.blocked ? 'заблокирован' : 'активен'}
           </p>
+          <label htmlFor="user-rank">Ранг</label>
+          <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(selected.id, event.target.value)}>
+            <option value="">без ранга</option>
+            {RANKS.map((rank) => (
+              <option key={rank.id} value={rank.id}>{rank.label}</option>
+            ))}
+          </select>
           {error && <p className="error">{error}</p>}
           <div className="user-actions">
             <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'PLAYER')}>PLAYER</button>
