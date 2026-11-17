@@ -28,9 +28,15 @@
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) auto auto;
   gap: 16px;
-  align-items: baseline;
+  align-items: center;
   padding: 14px 4px;
   border-bottom: 1px solid var(--line);
+}
+
+.rating-nick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 @media (max-width: 900px) {

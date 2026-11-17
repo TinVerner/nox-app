@@ -16,6 +16,11 @@ if (!sessionSecret) {
 const GAME_STATUS = ['DRAFT', 'PUBLISHED', 'DONE']
 const GAME_KIND = ['CLASSIC', 'TOURNAMENT', 'NOVICE']
 const RANKS = ['MASTER', 'MASTER_PRO', 'LEGEND']
+const RANK_LABEL = {
+  MASTER: 'Мастер ★',
+  MASTER_PRO: 'Мастер Про ★★',
+  LEGEND: 'Легенда',
+}
 const SANCTION_DELTA = { LATE_10: -5, LATE_MORE: -10, NO_SHOW: -15, WARNING: 0 }
 
 const CATALOG = [
@@ -401,21 +406,32 @@ app.delete('/api/bookings/:id/guests/:guestId', async (req, res) => {
 })
 
 async function ratingList() {
-  const grouped = await prisma.result.groupBy({
-    by: ['nick'],
-    _sum: { points: true },
-    _count: { nick: true },
-    orderBy: { _sum: { points: 'desc' } },
+  const players = await prisma.user.findMany({
+    where: { role: 'PLAYER' },
+    select: { id: true, nick: true, rank: true },
   })
-  if (grouped.length === 0) {
-    return prisma.playerStat.findMany({ orderBy: { points: 'desc' } })
-  }
-  return grouped.map((row) => ({
-    id: row.nick,
-    nick: row.nick,
-    points: row._sum.points ?? 0,
-    games: row._count.nick,
-  }))
+  const nicks = players.map((player) => player.nick)
+  const grouped = nicks.length
+    ? await prisma.result.groupBy({
+      by: ['nick'],
+      where: { nick: { in: nicks } },
+      _sum: { points: true },
+      _count: { nick: true },
+    })
+    : []
+  const byNick = new Map(grouped.map((row) => [row.nick, row]))
+  return players
+    .map((player) => {
+      const stats = byNick.get(player.nick)
+      return {
+        id: player.id,
+        nick: player.nick,
+        points: stats?._sum.points ?? 0,
+        games: stats?._count.nick ?? 0,
+        rank: RANK_LABEL[player.rank] || '',
+      }
+    })
+    .sort((a, b) => b.points - a.points || a.nick.localeCompare(b.nick, 'ru'))
 }
 
 app.get('/api/rating', async (req, res) => {

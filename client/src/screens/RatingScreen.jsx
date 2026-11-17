@@ -19,7 +19,7 @@ export default function RatingScreen({ rating }) {
       </div>
       {open && (
         <div className="panel stack explain">
-          <p>Очки игрока — сумма очков, которые ведущий внёс в результатах вечеров. Число игр — сколько таких результатов есть у ника. Пока результатов нет, показан прежний список.</p>
+          <p>Очки игрока — сумма очков, которые ведущий внёс в результатах вечеров. Число игр — сколько таких результатов есть у ника. В таблице каждый игрок; если результатов нет, очки и игры равны нулю.</p>
           <button type="button" className="btn-secondary btn-s" onClick={() => setOpen(false)}>Закрыть</button>
         </div>
       )}
@@ -33,6 +33,7 @@ export default function RatingScreen({ rating }) {
                 <article key={row.id} className={`podium-card podium-card--${index + 1}`}>
                   <p className="podium-place">{index + 1}</p>
                   <h2 className="podium-nick">{row.nick}</h2>
+                  {row.rank ? <p className="muted">{row.rank}</p> : null}
                   <p className="muted">{row.points} очков · игр {row.games}</p>
                 </article>
               ))}
@@ -42,7 +43,10 @@ export default function RatingScreen({ rating }) {
             {table.map((row, index) => (
               <article key={row.id} className="rating-row">
                 <span className="muted">{view === 'TOP' ? index + 4 : index + 1}</span>
-                <span>{row.nick}</span>
+                <span className="rating-nick">
+                  <span>{row.nick}</span>
+                  {row.rank ? <span className="muted">{row.rank}</span> : null}
+                </span>
                 <span>{row.points} очков</span>
                 <span className="muted">игр {row.games}</span>
               </article>
