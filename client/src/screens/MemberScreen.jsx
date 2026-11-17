@@ -30,7 +30,7 @@ export default function MemberScreen({ memberId, onBack }) {
       {missing ? (
         <p className="muted">не найдено</p>
       ) : member ? (
-        <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel member-panel">
           <p className="eyebrow">{ROLE[member.role] || member.role}</p>
           <h1>{member.nick}</h1>
           {member.rating ? (

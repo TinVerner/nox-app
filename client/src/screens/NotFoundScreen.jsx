@@ -1,3 +1,5 @@
+import Footer from '../components/Footer'
+
 export default function NotFoundScreen({ onHome, onGames, onBack }) {
   return (
     <section className="screen not-found">
@@ -12,10 +14,7 @@ export default function NotFoundScreen({ onHome, onGames, onBack }) {
         </div>
         <button type="button" className="not-found__back" onClick={onBack}>← Вернуться назад</button>
       </div>
-      <footer className="not-found__foot">
-        <span>© 2026 NOX · Минск</span>
-        <span>Клуб спортивной мафии</span>
-      </footer>
+      <Footer />
     </section>
   )
 }

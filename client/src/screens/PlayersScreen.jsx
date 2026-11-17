@@ -32,7 +32,7 @@ export default function PlayersScreen({ onOpen }) {
       <p className="eyebrow">Ведущий</p>
       <h1>Игроки</h1>
       {rows === null ? null : rows.length === 0 ? (
-        <p className="muted">Пока нет игроков</p>
+        <p className="muted">пусто</p>
       ) : (
         <div className="member-grid">
           {rows.map((row) => (

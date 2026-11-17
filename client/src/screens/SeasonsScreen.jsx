@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 export default function SeasonsScreen() {
   const [seasons, setSeasons] = useState(null)
   const [pending, setPending] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     apiFetch('/api/seasons')
@@ -20,9 +21,14 @@ export default function SeasonsScreen() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ closed: true }),
     })
-    if (!res.ok) return alert('не вышло')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'не вышло')
+      return
+    }
     const updated = await res.json()
     setSeasons((rows) => rows.map((season) => (season.id === pending.id ? updated : season)))
+    setError('')
     setPending(null)
   }
 
@@ -35,6 +41,7 @@ export default function SeasonsScreen() {
       <h1>Сезоны клуба</h1>
       <p className="lede">Текущий сезон и архив. Закрытие прячет вечера сезона из открытого расписания.</p>
       <div className="stack">
+        {seasons !== null && open.length === 0 && closed.length === 0 && <p className="muted">пусто</p>}
         {open.map((season) => (
           <article key={season.id} className="panel">
             <p className="eyebrow">Текущий сезон</p>
@@ -52,10 +59,11 @@ export default function SeasonsScreen() {
         )}
       </div>
       {pending && (
-        <Modal title="Закрыть сезон" eyebrow="Сезоны" onClose={() => setPending(null)}>
+        <Modal title="Закрыть сезон" eyebrow="Сезоны" onClose={() => { setError(''); setPending(null) }}>
           <p>Закрыть «{pending.name}»? Вечера этого сезона пропадут из открытого расписания.</p>
+          {error && <p className="error">{error}</p>}
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Отмена</button>
+            <button type="button" className="btn-ghost" onClick={() => { setError(''); setPending(null) }}>Отмена</button>
             <button type="button" className="btn-danger" onClick={closeSeason}>Закрыть сезон</button>
           </div>
         </Modal>

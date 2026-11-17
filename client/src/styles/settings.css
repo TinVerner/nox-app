@@ -1,3 +1,5 @@
+.saved-note { margin-top: 16px; }
+
 .split { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
 
 .check { display: flex; align-items: center; gap: 8px; color: var(--text); }

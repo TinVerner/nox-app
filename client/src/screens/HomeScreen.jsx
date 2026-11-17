@@ -47,7 +47,7 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
         <p className="eyebrow">Ближайшие вечера</p>
         <h2 className="page-title">Расписание</h2>
         {games === null ? null : next.length === 0 ? (
-          <p className="muted">Пока нет игр</p>
+          <p className="muted">пусто</p>
         ) : (
           <div className="night-list">
             {next.map((game) => {
@@ -60,7 +60,7 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
                   </div>
                   <div>
                     <h3 className="night-card__title">{game.title}</h3>
-                    <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.place} · мест {game.seats}</p>
+                    <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.place} · {game.taken ?? 0} из {game.seats}</p>
                   </div>
                   <div className="night-card__side">
                     {game.price > 0 ? <span className="price">{game.price} BYN</span> : <span />}

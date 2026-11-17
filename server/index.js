@@ -98,7 +98,18 @@ app.get('/api/games', async (req, res) => {
   const visible = staff
     ? items
     : items.filter((game) => game.status === 'PUBLISHED' && (!game.season || game.season.closed === false))
-  res.json(visible.map(({ season, ...game }) => game))
+  const counts = visible.length
+    ? await prisma.booking.groupBy({
+      by: ['gameId'],
+      where: { status: 'CONFIRMED', gameId: { in: visible.map((game) => game.id) } },
+      _count: { _all: true },
+    })
+    : []
+  const takenByGame = new Map(counts.map((row) => [row.gameId, row._count._all]))
+  res.json(visible.map(({ season, ...game }) => ({
+    ...game,
+    taken: takenByGame.get(game.id) || 0,
+  })))
 })
 
 app.post('/api/games', async (req, res) => {
@@ -205,19 +216,47 @@ app.get('/api/bookings', async (req, res) => {
     where: { userId: req.session.userId },
     orderBy: { createdAt: 'desc' },
   })
-  const games = await prisma.game.findMany({
-    where: { id: { in: bookings.map((booking) => booking.gameId) } },
+  const gameIds = bookings.map((booking) => booking.gameId)
+  const games = gameIds.length
+    ? await prisma.game.findMany({ where: { id: { in: gameIds } } })
+    : []
+  const counts = gameIds.length
+    ? await prisma.booking.groupBy({
+      by: ['gameId'],
+      where: { status: 'CONFIRMED', gameId: { in: gameIds } },
+      _count: { _all: true },
+    })
+    : []
+  const me = await prisma.user.findUnique({
+    where: { id: req.session.userId },
+    select: { nick: true },
   })
+  if (!me) return res.status(401).json({ error: 'сначала войди' })
+  const resultRows = gameIds.length
+    ? await prisma.result.findMany({
+      where: { gameId: { in: gameIds }, nick: me.nick },
+      select: { gameId: true, points: true },
+    })
+    : []
   const byId = new Map(games.map((game) => [game.id, game]))
+  const takenByGame = new Map(counts.map((row) => [row.gameId, row._count._all]))
+  const pointsByGame = new Map()
+  for (const row of resultRows) {
+    pointsByGame.set(row.gameId, (pointsByGame.get(row.gameId) || 0) + row.points)
+  }
   res.json(bookings.map((booking) => {
     const game = byId.get(booking.gameId)
     return {
       id: booking.id,
+      gameId: booking.gameId,
       status: booking.status,
+      gameStatus: game?.status ?? null,
       title: game?.title ?? null,
       startsAt: game?.startsAt ?? null,
       place: game?.place ?? null,
       seats: game?.seats ?? null,
+      taken: takenByGame.get(booking.gameId) || 0,
+      points: pointsByGame.has(booking.gameId) ? pointsByGame.get(booking.gameId) : null,
     }
   }))
 })

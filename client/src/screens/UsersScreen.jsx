@@ -9,10 +9,11 @@ const ROLE = {
 }
 
 export default function UsersScreen() {
-  const [users, setUsers] = useState([])
+  const [users, setUsers] = useState(null)
   const [q, setQ] = useState('')
   const [role, setRole] = useState('')
   const [selected, setSelected] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -37,7 +38,8 @@ export default function UsersScreen() {
       body: JSON.stringify({ role: nextRole }),
     })
     const updated = await res.json()
-    if (!res.ok) return alert(updated.error || 'не вышло')
+    if (!res.ok) return setError(updated.error || 'не вышло')
+    setError('')
     apply(updated)
   }
 
@@ -48,7 +50,8 @@ export default function UsersScreen() {
       body: JSON.stringify({ blocked }),
     })
     const updated = await res.json()
-    if (!res.ok) return alert(updated.error || 'не вышло')
+    if (!res.ok) return setError(updated.error || 'не вышло')
+    setError('')
     apply(updated)
   }
 
@@ -75,8 +78,8 @@ export default function UsersScreen() {
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
-            <tr key={user.id} onClick={() => setSelected(user)}>
+          {(users || []).map((user) => (
+            <tr key={user.id} onClick={() => { setError(''); setSelected(user) }}>
               <td>{user.nick}</td>
               <td className="muted">{user.email}</td>
               <td>{ROLE[user.role] || user.role}</td>
@@ -85,14 +88,16 @@ export default function UsersScreen() {
           ))}
         </tbody>
       </table>
+      {users !== null && users.length === 0 && <p className="muted">пусто</p>}
       {selected && (
-        <Modal title={selected.nick} eyebrow="Пользователь" onClose={() => setSelected(null)}>
+        <Modal title={selected.nick} eyebrow="Пользователь" onClose={() => { setError(''); setSelected(null) }}>
           <p>Ник: {selected.nick}</p>
           <p>Email: {selected.email}</p>
           <p>Роль: {ROLE[selected.role] || selected.role}</p>
           <p className={selected.blocked ? 'status-wait' : 'status-ok'}>
             {selected.blocked ? 'заблокирован' : 'активен'}
           </p>
+          {error && <p className="error">{error}</p>}
           <div className="user-actions">
             <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'PLAYER')}>PLAYER</button>
             <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'HOST')}>HOST</button>
@@ -102,7 +107,7 @@ export default function UsersScreen() {
             </button>
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={() => setSelected(null)}>Закрыть</button>
+            <button type="button" className="btn-ghost" onClick={() => { setError(''); setSelected(null) }}>Закрыть</button>
           </div>
         </Modal>
       )}

@@ -9,6 +9,7 @@ export default function ResultsScreen() {
   const [points, setPoints] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     apiFetch('/api/games')
@@ -35,11 +36,16 @@ export default function ResultsScreen() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId, nick, points }),
     })
-    if (!res.ok) return alert('не вышло')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'не вышло')
+      return
+    }
     const row = await res.json()
     setResults((rows) => [row, ...rows])
     setNick('')
     setPoints('')
+    setError('')
     setOpen(false)
   }
 
@@ -66,19 +72,23 @@ export default function ResultsScreen() {
           ))}
         </select>
       </div>
-      {finished ? (
+      {games.length === 0 ? <p className="muted">пусто</p> : finished ? (
         <div className="panel">
           <h2>Итоги вечера</h2>
-          <ol className="standings">
-            {standings.map((row, index) => (
-              <li key={row.id}>
-                <span className="muted">{index + 1}</span>
-                <span>{row.nick}</span>
-                <span>{row.points}</span>
-              </li>
-            ))}
-          </ol>
+          {standings.length === 0 ? <p className="muted">пусто</p> : (
+            <ol className="standings">
+              {standings.map((row, index) => (
+                <li key={row.id}>
+                  <span className="muted">{index + 1}</span>
+                  <span>{row.nick}</span>
+                  <span>{row.points}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
+      ) : results.length === 0 ? (
+        <p className="muted">пусто</p>
       ) : (
         <div className="toolbar">
           {results.map((row) => (
@@ -87,12 +97,13 @@ export default function ResultsScreen() {
         </div>
       )}
       {open && (
-        <Modal title="Результат" eyebrow={game?.title || 'Вечер'} onClose={() => setOpen(false)}>
+        <Modal title="Результат" eyebrow={game?.title || 'Вечер'} onClose={() => { setError(''); setOpen(false) }}>
           <form className="stack" onSubmit={add}>
             <input placeholder="ник" value={nick} onChange={(event) => setNick(event.target.value)} required />
             <input placeholder="очки" type="number" value={points} onChange={(event) => setPoints(event.target.value)} required />
+            {error && <p className="error">{error}</p>}
             <div className="modal-actions">
-              <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Отмена</button>
+              <button type="button" className="btn-ghost" onClick={() => { setError(''); setOpen(false) }}>Отмена</button>
               <button type="submit">Добавить</button>
             </div>
           </form>

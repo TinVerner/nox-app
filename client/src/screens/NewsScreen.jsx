@@ -83,6 +83,7 @@ export default function NewsScreen({ me, news, onCreate }) {
           <button type="button" className="btn-primary" onClick={() => setEditor(true)}>Новая новость</button>
         )}
       </div>
+      {news.length === 0 && <p className="muted">пусто</p>}
       {news.map((item) => (
         <article key={item.id} className="panel news-card">
           <h2>{item.title}</h2>

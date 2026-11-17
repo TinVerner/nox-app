@@ -40,7 +40,7 @@ export default function BookingsScreen() {
       <p className="eyebrow">Мои записи</p>
       <h1>Предстоящие и прошедшие</h1>
       {bookings === null ? null : bookings.length === 0 ? (
-        <p className="muted">Записей нет</p>
+        <p className="muted">пусто</p>
       ) : (
         <div className="night-list">
           {bookings.map((row) => {
@@ -53,10 +53,13 @@ export default function BookingsScreen() {
                 </div>
                 <div>
                   <h2 className="night-card__title">{row.title}</h2>
-                  <p className="muted">{row.place}{row.seats ? ` · мест ${row.seats}` : ''}</p>
+                  <p className="muted">{row.place}{row.seats != null ? ` · ${row.taken ?? 0} из ${row.seats}` : ''}</p>
                 </div>
                 <div className="night-card__side">
-                  <span className={row.status === 'WAITING' ? 'status-wait' : 'status-ok'}>{STATUS[row.status] || row.status}</span>
+                  <span className={row.gameStatus === 'DONE' ? 'status-muted' : row.status === 'WAITING' ? 'status-wait' : 'status-ok'}>
+                    {row.gameStatus === 'DONE' ? 'Сыграна' : (STATUS[row.status] || row.status)}
+                    {row.gameStatus === 'DONE' && row.points != null ? ` ${row.points > 0 ? '+' : ''}${row.points}` : ''}
+                  </span>
                   <button type="button" className="btn-ghost btn-s" onClick={() => cancel(row.id)}>Отменить</button>
                 </div>
               </article>

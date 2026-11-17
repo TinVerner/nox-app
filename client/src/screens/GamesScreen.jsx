@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Modal from '../components/Modal'
+import { apiFetch } from '../api'
 
 const FILTERS = [
   { id: 'ALL', label: 'Все' },
@@ -58,6 +59,10 @@ function nightParts(iso) {
     label: `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`,
     time,
   }
+}
+
+function bookLabel(game) {
+  return (game.taken ?? 0) >= game.seats ? 'Лист ожидания' : 'Записаться'
 }
 
 function toLocalInput(iso) {
@@ -121,10 +126,58 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [kindFilter, setKindFilter] = useState('ALL')
   const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
+  const [bookError, setBookError] = useState('')
+  const [booking, setBooking] = useState(false)
+  const [bookedIds, setBookedIds] = useState([])
   const [editor, setEditor] = useState(null)
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
+  useEffect(() => {
+    if (!me) {
+      setBookedIds([])
+      return
+    }
+    let cancelled = false
+    apiFetch('/api/bookings')
+      .then((response) => (response.ok ? response.json() : []))
+      .then((rows) => {
+        if (!cancelled) setBookedIds(rows.map((row) => row.gameId).filter(Boolean))
+      })
+      .catch(() => {
+        if (!cancelled) setBookedIds([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [me, reloadKey])
+
+  function openBooking(game) {
+    if (bookedIds.includes(game.id)) return
+    setBookError('')
+    setPending(game)
+  }
+
+  async function confirmBooking() {
+    if (booking || !pending) return
+    setBooking(true)
+    setBookError('')
+    try {
+      const result = await onBook(pending.id)
+      if (!result?.ok) {
+        if (result?.error === 'уже записана') {
+          setBookedIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]))
+        }
+        setBookError(result?.error || 'не вышло')
+        return
+      }
+      setBookedIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]))
+      setPending(null)
+    } finally {
+      setBooking(false)
+    }
+  }
+
   const week = minskWeek()
   const visible = games.filter((game) => {
     if (kindFilter !== 'ALL' && game.kind !== kindFilter) return false
@@ -168,7 +221,9 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           </button>
         ))}
       </div>
-      {weekFilter === 'WEEK' && visible.length === 0 && <p>На этой неделе вечеров нет</p>}
+      {visible.length === 0 && (
+        <p className="muted">{weekFilter === 'WEEK' ? 'На этой неделе вечеров нет' : 'пусто'}</p>
+      )}
       <div className="night-list" key={reloadKey}>
       {visible.map((game) => {
         const when = nightParts(game.startsAt)
@@ -180,14 +235,21 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
             </div>
             <div>
               <h2 className="night-card__title">{game.title}</h2>
-              <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.place} · мест {game.seats}</p>
+              <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.place} · {game.taken ?? 0} из {game.seats}</p>
             </div>
             <div className="night-card__side">
               {game.price > 0 && <span className="price">{game.price} BYN</span>}
               {staff && (
                 <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
               )}
-              <button type="button" className="btn-primary btn-s" onClick={() => (me ? setPending(game) : onLogin())}>Записаться</button>
+              <button
+                type="button"
+                className="btn-primary btn-s"
+                disabled={bookedIds.includes(game.id)}
+                onClick={() => (me ? openBooking(game) : onLogin())}
+              >
+                {bookedIds.includes(game.id) ? 'Вы записаны' : bookLabel(game)}
+              </button>
             </div>
             {staff && (
               <div className="night-card__tools">
@@ -199,13 +261,16 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
       })}
       </div>
       {pending && (
-        <Modal title={pending.title} eyebrow="Запись" onClose={() => setPending(null)}>
+        <Modal title={pending.title} eyebrow="Запись" onClose={() => { if (!booking) setPending(null) }}>
           <p>{new Date(pending.startsAt).toLocaleString('ru')}</p>
           <p className="muted">{pending.place}</p>
           <p className="price">{pending.price > 0 ? `${pending.price} BYN` : '0 BYN'}</p>
+          <p>{pending.taken ?? 0} из {pending.seats}</p>
+          {(pending.taken ?? 0) >= pending.seats && !bookError && <p>Свободных мест нет. Вы попадёте в лист ожидания.</p>}
+          {bookError && <p className="error">{bookError}</p>}
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Отмена</button>
-            <button type="button" className="btn-primary" onClick={() => { onBook(pending.id); setPending(null) }}>Записаться</button>
+            <button type="button" className="btn-ghost" onClick={() => setPending(null)} disabled={booking}>Отмена</button>
+            <button type="button" className="btn-primary" onClick={confirmBooking} disabled={booking}>{bookLabel(pending)}</button>
           </div>
         </Modal>
       )}

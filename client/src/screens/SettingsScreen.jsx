@@ -6,6 +6,7 @@ export default function SettingsScreen() {
   const [bookingOpen, setBookingOpen] = useState(true)
   const [waitlistSize, setWaitlistSize] = useState(4)
   const [saved, setSaved] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     apiFetch('/api/settings')
@@ -22,6 +23,7 @@ export default function SettingsScreen() {
 
   async function save(e) {
     e.preventDefault()
+    setError('')
     const res = await apiFetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -32,7 +34,7 @@ export default function SettingsScreen() {
       }),
     })
     const settings = await res.json()
-    if (!res.ok) return alert(settings.error || 'не вышло')
+    if (!res.ok) return setError(settings.error || 'не вышло')
     setName(settings.name)
     setBookingOpen(settings.bookingOpen)
     setWaitlistSize(settings.waitlistSize)
@@ -79,8 +81,9 @@ export default function SettingsScreen() {
           </article>
         </div>
       </form>
+      {error && <p className="error saved-note">{error}</p>}
       {saved && (
-        <p className="muted" style={{ marginTop: 16 }}>
+        <p className="muted saved-note">
           {saved.name} · запись {saved.bookingOpen ? 'открыта' : 'закрыта'} · лист ожидания {saved.waitlistSize}
         </p>
       )}

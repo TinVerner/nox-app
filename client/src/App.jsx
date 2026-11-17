@@ -19,6 +19,7 @@ import SeasonsScreen from './screens/SeasonsScreen'
 import OverviewScreen from './screens/OverviewScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
+import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
@@ -226,7 +227,9 @@ function App() {
       method: 'POST',
     })
     const data = await res.json().catch(() => ({}))
-    alert(res.ok ? 'ты записана' : (data.error || 'не вышло'))
+    if (!res.ok) return { ok: false, error: data.error || 'не вышло' }
+    alert(data.status === 'WAITING' ? 'ты в листе ожидания' : 'ты записана')
+    return { ok: true }
   }
 
   async function createGame(payload) {
@@ -353,6 +356,7 @@ function App() {
             onSubmit={register}
           />
         )}
+        {KNOWN_SCREENS.has(screen) && <Footer />}
       </main>
     </div>
   )
