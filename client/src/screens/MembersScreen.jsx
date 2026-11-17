@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 
 const ROLE = {
-  PLAYER: 'Игрок',
-  HOST: 'Ведущий',
-  ADMIN: 'Администратор',
+  PLAYER: 'игрок',
+  HOST: 'ведущий',
+  ADMIN: 'администратор',
 }
 
 export default function MembersScreen({ onOpen }) {
@@ -19,9 +19,10 @@ export default function MembersScreen({ onOpen }) {
 
   return (
     <section className="screen">
+      <p className="eyebrow">Клуб</p>
       <h1>Участники</h1>
       {members === null ? null : members.length === 0 ? (
-        <p>Пока нет участников</p>
+        <p className="muted">Пока нет участников</p>
       ) : (
         <div className="member-grid">
           {members.map((member) => (

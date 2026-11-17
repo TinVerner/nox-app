@@ -3,15 +3,16 @@ const LINKS = [
   { screen: 'games', label: 'Расписание' },
   { screen: 'rating', label: 'Рейтинг' },
   { screen: 'members', label: 'Участники' },
-  { screen: 'login', label: 'Войти' },
-  { screen: 'register', label: 'Регистрация' },
 ]
 
 export default function TopNav({ screen, setScreen }) {
   return (
     <header className="top-nav">
-      <button className="brand" onClick={() => setScreen('home')}>NOX</button>
-      <nav>
+      <div className="brand-lockup">
+        <button className="brand" onClick={() => setScreen('home')}>NOX</button>
+        <p className="brand-sub">клуб</p>
+      </div>
+      <nav className="top-nav__links">
         {LINKS.map((item) => (
           <button
             key={item.screen}
@@ -23,6 +24,10 @@ export default function TopNav({ screen, setScreen }) {
           </button>
         ))}
       </nav>
+      <div className="top-nav__auth">
+        <button className="nav-link" aria-current={screen === 'login' ? 'page' : undefined} onClick={() => setScreen('login')}>Войти</button>
+        <button className="btn-primary btn-s" aria-current={screen === 'register' ? 'page' : undefined} onClick={() => setScreen('register')}>Регистрация</button>
+      </div>
     </header>
   )
 }

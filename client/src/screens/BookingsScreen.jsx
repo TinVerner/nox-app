@@ -2,8 +2,21 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 
 const STATUS = {
-  CONFIRMED: 'подтверждена',
-  WAITING: 'лист ожидания',
+  CONFIRMED: 'Подтверждена',
+  WAITING: 'Ожидание',
+}
+
+const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+const DAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
+
+function nightParts(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return { label: '', time: '' }
+  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  return {
+    label: `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`,
+    time,
+  }
 }
 
 export default function BookingsScreen() {
@@ -24,22 +37,32 @@ export default function BookingsScreen() {
 
   return (
     <section className="screen">
-      <h1>Мои записи</h1>
+      <p className="eyebrow">Мои записи</p>
+      <h1>Предстоящие и прошедшие</h1>
       {bookings === null ? null : bookings.length === 0 ? (
-        <p>Записей нет</p>
+        <p className="muted">Записей нет</p>
       ) : (
-        bookings.map((row) => (
-          <article key={row.id} className="game-row">
-            <span className="game-row__date">
-              {row.startsAt ? new Date(row.startsAt).toLocaleString('ru') : ''}
-            </span>
-            <h2 className="game-row__title">{row.title}</h2>
-            <span>{row.place}</span>
-            <span>мест: {row.seats}</span>
-            <span>{STATUS[row.status] || row.status}</span>
-            <button type="button" onClick={() => cancel(row.id)}>Отменить</button>
-          </article>
-        ))
+        <div className="night-list">
+          {bookings.map((row) => {
+            const when = nightParts(row.startsAt)
+            return (
+              <article key={row.id} className="night-card">
+                <div className="night-card__when">
+                  <span>{when.label}</span>
+                  <span className="night-card__time">{when.time}</span>
+                </div>
+                <div>
+                  <h2 className="night-card__title">{row.title}</h2>
+                  <p className="muted">{row.place}{row.seats ? ` · мест ${row.seats}` : ''}</p>
+                </div>
+                <div className="night-card__side">
+                  <span className={row.status === 'WAITING' ? 'status-wait' : 'status-ok'}>{STATUS[row.status] || row.status}</span>
+                  <button type="button" className="btn-ghost btn-s" onClick={() => cancel(row.id)}>Отменить</button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
       )}
     </section>
   )

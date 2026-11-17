@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 
+const ROLE = {
+  PLAYER: 'игрок',
+  HOST: 'ведущий',
+  ADMIN: 'администратор',
+}
+
 export default function UsersScreen() {
   const [users, setUsers] = useState([])
   const [q, setQ] = useState('')
@@ -41,26 +47,48 @@ export default function UsersScreen() {
 
   return (
     <section className="screen">
-      <h1>Люди</h1>
-      <input placeholder="ник или email" value={q} onChange={(e) => setQ(e.target.value)} />
-      <select value={role} onChange={(e) => setRole(e.target.value)}>
-        <option value="">все роли</option>
-        <option value="PLAYER">PLAYER</option>
-        <option value="HOST">HOST</option>
-        <option value="ADMIN">ADMIN</option>
-      </select>
-      {users.map((user) => (
-        <p key={user.id}>
-          {user.nick} · {user.email} · {user.role}
-          {user.blocked ? ' · заблокирован' : ''}{' '}
-          <button type="button" onClick={() => setUserRole(user.id, 'PLAYER')}>PLAYER</button>{' '}
-          <button type="button" onClick={() => setUserRole(user.id, 'HOST')}>HOST</button>{' '}
-          <button type="button" onClick={() => setUserRole(user.id, 'ADMIN')}>ADMIN</button>{' '}
-          <button type="button" onClick={() => setBlocked(user.id, !user.blocked)}>
-            {user.blocked ? 'Разблокировать' : 'Заблокировать'}
-          </button>
-        </p>
-      ))}
+      <p className="eyebrow">Управление клубом</p>
+      <h1>Пользователи</h1>
+      <div className="toolbar">
+        <input placeholder="ник или email" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="">все роли</option>
+          <option value="PLAYER">игрок</option>
+          <option value="HOST">ведущий</option>
+          <option value="ADMIN">администратор</option>
+        </select>
+      </div>
+      <table className="user-table">
+        <thead>
+          <tr>
+            <th>Ник</th>
+            <th>Email</th>
+            <th>Роль</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td>{user.nick}</td>
+              <td className="muted">{user.email}</td>
+              <td>{ROLE[user.role] || user.role}</td>
+              <td className={user.blocked ? 'status-wait' : 'status-ok'}>{user.blocked ? 'заблокирован' : 'активен'}</td>
+              <td>
+                <div className="user-actions">
+                  <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(user.id, 'PLAYER')}>игрок</button>
+                  <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(user.id, 'HOST')}>ведущий</button>
+                  <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(user.id, 'ADMIN')}>администратор</button>
+                  <button type="button" className="btn-danger btn-s" onClick={() => setBlocked(user.id, !user.blocked)}>
+                    {user.blocked ? 'Разблокировать' : 'Заблокировать'}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   )
 }

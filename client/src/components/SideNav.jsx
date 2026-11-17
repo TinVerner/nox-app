@@ -15,6 +15,7 @@ const MENUS = {
       { screen: 'games', label: 'Вечера' },
       { screen: 'results', label: 'Результаты' },
       { screen: 'seasons', label: 'Сезоны' },
+      { screen: 'players', label: 'Игроки' },
     ],
   },
   admin: {
@@ -27,7 +28,7 @@ const MENUS = {
   },
 }
 
-export default function SideNav({ role, screen, setScreen, logout }) {
+export default function SideNav({ role, screen, setScreen, logout, nick }) {
   const menu = MENUS[role] || MENUS.player
 
   return (
@@ -48,7 +49,10 @@ export default function SideNav({ role, screen, setScreen, logout }) {
           </button>
         ))}
       </nav>
-      <button className="nav-link side-nav__logout" onClick={logout}>Выйти</button>
+      <div className="side-nav__foot">
+        {nick ? <p className="side-nav__nick">{nick}</p> : null}
+        <button className="nav-link" onClick={logout}>Выйти</button>
+      </div>
     </aside>
   )
 }

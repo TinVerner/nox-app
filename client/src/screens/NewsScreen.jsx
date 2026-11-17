@@ -40,34 +40,35 @@ export default function NewsScreen({ me, news, onCreate }) {
   }
 
   return (
-    <>
-      <h1 style={{ color: '#C9A84C' }}>Новости</h1>
+    <section className="screen">
+      <p className="eyebrow">Новости</p>
+      <h1>Лента клуба</h1>
       {me?.role === 'ADMIN' && (
-        <form onSubmit={onCreate}>
+        <form className="panel stack" onSubmit={onCreate} style={{ marginBottom: 16 }}>
           <input name="title" placeholder="заголовок" required />
           <input name="body" placeholder="текст" required />
-          <button>Опубликовать</button>
+          <button type="submit">Опубликовать</button>
         </form>
       )}
       {news.map((item) => (
-        <article key={item.id}>
+        <article key={item.id} className="panel news-card">
           <h2>{item.title}</h2>
           <p>{item.body}</p>
           {(comments[item.id] || []).map((row) => (
-            <p key={row.id}>{row.nick}: {row.body}</p>
+            <p className="comment" key={row.id}>{row.nick}: {row.body}</p>
           ))}
           {me && (
-            <form onSubmit={(e) => comment(e, item.id)}>
+            <form className="stack" onSubmit={(e) => comment(e, item.id)}>
               <textarea
                 value={drafts[item.id] || ''}
                 onChange={(e) => setDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
                 placeholder="комментарий"
               />
-              <button>Комментировать</button>
+              <button type="submit" className="btn-secondary">Комментировать</button>
             </form>
           )}
         </article>
       ))}
-    </>
+    </section>
   )
 }

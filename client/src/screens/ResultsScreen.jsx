@@ -40,22 +40,32 @@ export default function ResultsScreen() {
     setPoints('')
   }
 
+  const game = games.find((item) => item.id === gameId)
+
   return (
     <section className="screen">
-      <h1>Результаты</h1>
-      <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
-        {games.map((game) => (
-          <option key={game.id} value={game.id}>{game.title}</option>
-        ))}
-      </select>
-      <form onSubmit={add}>
-        <input placeholder="ник" value={nick} onChange={(e) => setNick(e.target.value)} required />
-        <input placeholder="очки" type="number" value={points} onChange={(e) => setPoints(e.target.value)} required />
-        <button>Добавить</button>
+      <p className="eyebrow">Результаты</p>
+      <h1>{game ? game.title : 'Результаты вечеров'}</h1>
+      {game?.startsAt && <p className="muted">{new Date(game.startsAt).toLocaleString('ru')}{game.place ? ` · ${game.place}` : ''}</p>}
+      <div className="toolbar">
+        <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
+          {games.map((item) => (
+            <option key={item.id} value={item.id}>{item.title}</option>
+          ))}
+        </select>
+      </div>
+      <form className="panel stack" onSubmit={add}>
+        <div className="form-row">
+          <input placeholder="ник" value={nick} onChange={(e) => setNick(e.target.value)} required />
+          <input placeholder="очки" type="number" value={points} onChange={(e) => setPoints(e.target.value)} required />
+          <button type="submit">Добавить</button>
+        </div>
+        <div className="toolbar">
+          {results.map((row) => (
+            <span key={row.id} className="chip">{row.nick} · {row.points}</span>
+          ))}
+        </div>
       </form>
-      {results.map((row) => (
-        <p key={row.id}>{row.nick}: {row.points}</p>
-      ))}
     </section>
   )
 }

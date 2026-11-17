@@ -11,6 +11,7 @@ import LoginScreen from './screens/LoginScreen'
 import RegisterScreen from './screens/RegisterScreen'
 import MembersScreen from './screens/MembersScreen'
 import MemberScreen from './screens/MemberScreen'
+import PlayersScreen from './screens/PlayersScreen'
 import BookingsScreen from './screens/BookingsScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import ResultsScreen from './screens/ResultsScreen'
@@ -29,6 +30,7 @@ function App() {
   const [me, setMe] = useState(null)
   const [screen, setScreen] = useState('home')
   const [memberId, setMemberId] = useState(null)
+  const [memberBack, setMemberBack] = useState('members')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordAgain, setPasswordAgain] = useState('')
@@ -224,7 +226,13 @@ function App() {
       {shell === 'guest' ? (
         <TopNav screen={screen} setScreen={setScreen} />
       ) : (
-        <SideNav role={shell} screen={screen} setScreen={setScreen} logout={logout} />
+        <SideNav
+          role={shell}
+          nick={me?.nick}
+          screen={screen === 'member' ? memberBack : screen}
+          setScreen={setScreen}
+          logout={logout}
+        />
       )}
 
       <main className="app-main">
@@ -248,10 +256,13 @@ function App() {
         {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} />}
         {screen === 'users' && <UsersScreen />}
         {screen === 'members' && (
-          <MembersScreen onOpen={(id) => { setMemberId(id); setScreen('member') }} />
+          <MembersScreen onOpen={(id) => { setMemberId(id); setMemberBack('members'); setScreen('member') }} />
+        )}
+        {screen === 'players' && (
+          <PlayersScreen onOpen={(id) => { setMemberId(id); setMemberBack('players'); setScreen('member') }} />
         )}
         {screen === 'member' && (
-          <MemberScreen memberId={memberId} onBack={() => setScreen('members')} />
+          <MemberScreen memberId={memberId} onBack={() => setScreen(memberBack)} />
         )}
         {screen === 'bookings' && <BookingsScreen />}
         {screen === 'profile' && <ProfileScreen me={me} />}

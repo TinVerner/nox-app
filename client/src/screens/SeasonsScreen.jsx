@@ -22,19 +22,31 @@ export default function SeasonsScreen() {
     setSeasons((rows) => rows.map((season) => (season.id === id ? updated : season)))
   }
 
+  const open = (seasons || []).filter((season) => !season.closed)
+  const closed = (seasons || []).filter((season) => season.closed)
+
   return (
     <section className="screen">
-      <h1>Сезоны</h1>
-      {(seasons || []).map((season) => (
-        <article key={season.id}>
-          <h2>{season.name}</h2>
-          {season.closed ? (
-            <p>закрыт</p>
-          ) : (
-            <button type="button" onClick={() => closeSeason(season.id)}>Закрыть сезон</button>
-          )}
-        </article>
-      ))}
+      <p className="eyebrow">Сезоны</p>
+      <h1>Сезоны клуба</h1>
+      <p className="lede">Текущий сезон и архив. Закрытие прячет вечера сезона из открытого расписания.</p>
+      <div className="stack">
+        {open.map((season) => (
+          <article key={season.id} className="panel">
+            <p className="eyebrow">Текущий сезон</p>
+            <h2>{season.name}</h2>
+            <button type="button" className="btn-danger btn-s" onClick={() => closeSeason(season.id)}>Закрыть сезон</button>
+          </article>
+        ))}
+        {closed.length > 0 && (
+          <div className="panel">
+            <h2>Архив сезонов</h2>
+            {closed.map((season) => (
+              <p key={season.id}>{season.name} · закрыт</p>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   )
 }

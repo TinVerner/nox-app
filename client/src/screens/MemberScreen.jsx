@@ -26,19 +26,19 @@ export default function MemberScreen({ memberId, onBack }) {
 
   return (
     <section className="screen">
-      <button type="button" onClick={onBack}>Назад</button>
+      <button type="button" className="btn-ghost btn-s" onClick={onBack}>Назад</button>
       {missing ? (
-        <p>не найдено</p>
+        <p className="muted">не найдено</p>
       ) : member ? (
-        <>
+        <div className="panel" style={{ marginTop: 16 }}>
+          <p className="eyebrow">{ROLE[member.role] || member.role}</p>
           <h1>{member.nick}</h1>
-          <p>{ROLE[member.role] || member.role}</p>
           {member.rating ? (
             <p>{member.rating.points} очков, игр {member.rating.games}</p>
           ) : (
-            <p>в рейтинге нет</p>
+            <p className="muted">в рейтинге нет</p>
           )}
-        </>
+        </div>
       ) : null}
     </section>
   )

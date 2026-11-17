@@ -41,29 +41,46 @@ export default function SettingsScreen() {
 
   return (
     <section className="screen">
-      <h1>Настройки</h1>
       <form onSubmit={save}>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="название клуба" required />
-        <label>
-          <input
-            type="checkbox"
-            checked={bookingOpen}
-            onChange={(e) => setBookingOpen(e.target.checked)}
-          />
-          запись открыта
-        </label>
-        <input
-          type="number"
-          min="0"
-          value={waitlistSize}
-          onChange={(e) => setWaitlistSize(e.target.value)}
-          placeholder="лист ожидания"
-          required
-        />
-        <button>Сохранить</button>
+        <div className="page-head">
+          <div>
+            <p className="eyebrow">Управление клубом</p>
+            <h1>Настройки клуба</h1>
+            <p className="lede">Название клуба и правила записи на вечера.</p>
+          </div>
+          <button type="submit">Сохранить изменения</button>
+        </div>
+        <div className="split">
+          <article className="panel stack">
+            <h2>О клубе</h2>
+            <label htmlFor="club-name">Название клуба</label>
+            <input id="club-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="название клуба" required />
+          </article>
+          <article className="panel stack">
+            <h2>Правила записи</h2>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={bookingOpen}
+                onChange={(e) => setBookingOpen(e.target.checked)}
+              />
+              запись открыта
+            </label>
+            <label htmlFor="waitlist">Лист ожидания</label>
+            <input
+              id="waitlist"
+              type="number"
+              min="0"
+              value={waitlistSize}
+              onChange={(e) => setWaitlistSize(e.target.value)}
+              placeholder="лист ожидания"
+              required
+            />
+          </article>
+        </div>
       </form>
       {saved && (
-        <p>
+        <p className="muted" style={{ marginTop: 16 }}>
           {saved.name} · запись {saved.bookingOpen ? 'открыта' : 'закрыта'} · лист ожидания {saved.waitlistSize}
         </p>
       )}
