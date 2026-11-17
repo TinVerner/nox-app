@@ -58,6 +58,7 @@ model Game {
   seats    Int
   status   String   @default("PUBLISHED")
   kind     String   @default("CLASSIC")
+  price    Int      @default(0)
   seasonId String?
   season   Season?  @relation(fields: [seasonId], references: [id])
   results  Result[]

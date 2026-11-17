@@ -16,6 +16,16 @@ if (!sessionSecret) {
 const GAME_STATUS = ['DRAFT', 'PUBLISHED', 'DONE']
 const GAME_KIND = ['CLASSIC', 'TOURNAMENT', 'NOVICE']
 
+function readPrice(value) {
+  if (typeof value === 'boolean' || value === null) return { error: 'цена должна быть числом' }
+  const price = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(price) || !Number.isInteger(price)) {
+    return { error: 'цена должна быть числом' }
+  }
+  if (price < 0) return { error: 'цена не может быть отрицательной' }
+  return { price }
+}
+
 const app = express()
 const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
@@ -96,7 +106,7 @@ app.post('/api/games', async (req, res) => {
   if (!me || (me.role !== 'HOST' && me.role !== 'ADMIN')) {
     return res.status(403).json({ error: 'только ведущий' })
   }
-  const { title, startsAt, place, seats, status, kind } = req.body
+  const { title, startsAt, place, seats, status, kind, price } = req.body
   if (!title || !startsAt || !place || !seats) {
     return res.status(400).json({ error: 'title, startsAt, place, seats обязательны' })
   }
@@ -106,6 +116,12 @@ app.post('/api/games', async (req, res) => {
   if (kind && !GAME_KIND.includes(kind)) {
     return res.status(400).json({ error: 'вид: CLASSIC, TOURNAMENT или NOVICE' })
   }
+  let priceValue = 0
+  if (price !== undefined) {
+    const parsed = readPrice(price)
+    if (parsed.error) return res.status(400).json({ error: parsed.error })
+    priceValue = parsed.price
+  }
   const item = await prisma.game.create({
     data: {
       title,
@@ -114,6 +130,7 @@ app.post('/api/games', async (req, res) => {
       seats: Number(seats),
       status: status || 'PUBLISHED',
       kind: kind || 'CLASSIC',
+      price: priceValue,
     },
   })
   res.status(201).json(item)
@@ -126,12 +143,18 @@ app.patch('/api/games/:id', async (req, res) => {
   }
   const game = await prisma.game.findUnique({ where: { id: req.params.id } })
   if (!game) return res.status(404).json({ error: 'игра не найдена' })
-  const { title, startsAt, place, seats, status, kind } = req.body
+  const { title, startsAt, place, seats, status, kind, price } = req.body
   if (status !== undefined && !GAME_STATUS.includes(status)) {
     return res.status(400).json({ error: 'статус: DRAFT, PUBLISHED или DONE' })
   }
   if (kind !== undefined && !GAME_KIND.includes(kind)) {
     return res.status(400).json({ error: 'вид: CLASSIC, TOURNAMENT или NOVICE' })
+  }
+  let priceValue
+  if (price !== undefined) {
+    const parsed = readPrice(price)
+    if (parsed.error) return res.status(400).json({ error: parsed.error })
+    priceValue = parsed.price
   }
   const data = {}
   if (title !== undefined) data.title = title
@@ -140,6 +163,7 @@ app.patch('/api/games/:id', async (req, res) => {
   if (seats !== undefined) data.seats = Number(seats)
   if (status !== undefined) data.status = status
   if (kind !== undefined) data.kind = kind
+  if (priceValue !== undefined) data.price = priceValue
   const item = await prisma.game.update({ where: { id: game.id }, data })
   res.json(item)
 })

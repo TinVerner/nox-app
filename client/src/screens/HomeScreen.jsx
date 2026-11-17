@@ -35,6 +35,7 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
             <span>{KIND_LABEL[game.kind] || game.kind}</span>
             <span>{game.place}</span>
             <span>мест: {game.seats}</span>
+            {game.price > 0 && <span>{game.price} BYN</span>}
           </article>
         ))
       )}

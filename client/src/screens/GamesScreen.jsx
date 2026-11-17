@@ -19,7 +19,7 @@ const KIND_LABEL = {
   NOVICE: 'Новички',
 }
 
-export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onLogin, onStatus, onKind }) {
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onLogin, onStatus, onKind, onPrice }) {
   const [kindFilter, setKindFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
@@ -35,6 +35,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           <input name="startsAt" type="datetime-local" required />
           <input name="place" placeholder="место" required />
           <input name="seats" type="number" placeholder="мест" required />
+          <input name="price" type="number" min="0" placeholder="цена" defaultValue="0" />
           <select name="kind" defaultValue="CLASSIC">
             <option value="CLASSIC">Классика</option>
             <option value="TOURNAMENT">Турнир</option>
@@ -72,6 +73,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           <span>{KIND_LABEL[game.kind] || game.kind}</span>
           <span>{game.place}</span>
           <span>мест: {game.seats}</span>
+          {game.price > 0 && <span>{game.price} BYN</span>}
           <button type="button" onClick={() => (me ? setPending(game) : onLogin())}>Записаться</button>
           {staff && (
             <div className="game-status">
@@ -84,6 +86,16 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
                 <option value="TOURNAMENT">Турнир</option>
                 <option value="NOVICE">Новички</option>
               </select>
+              <input
+                type="number"
+                min="0"
+                aria-label="цена"
+                defaultValue={game.price ?? 0}
+                onBlur={(e) => {
+                  if (String(game.price ?? 0) === e.target.value) return
+                  onPrice(game.id, e.target.value)
+                }}
+              />
             </div>
           )}
         </article>

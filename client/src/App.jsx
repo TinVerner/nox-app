@@ -153,6 +153,17 @@ function App() {
     alert(res.ok ? 'ты записана' : (data.error || 'не вышло'))
   }
 
+  async function setGamePrice(id, price) {
+    const res = await apiFetch('/api/games/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ price: Number(price) }),
+    })
+    if (!res.ok) return alert('не вышло')
+    const updated = await res.json()
+    setGames(games.map((game) => (game.id === id ? updated : game)))
+  }
+
   async function setGameKind(id, kind) {
     const res = await apiFetch('/api/games/' + id, {
       method: 'PATCH',
@@ -187,6 +198,7 @@ function App() {
         place: form.get('place'),
         seats: form.get('seats'),
         kind: form.get('kind') || 'CLASSIC',
+        price: Number(form.get('price') || 0),
       }),
     })
     if (!res.ok) return alert('не вышло')
@@ -229,6 +241,7 @@ function App() {
             onLogin={() => setScreen('login')}
             onStatus={setGameStatus}
             onKind={setGameKind}
+            onPrice={setGamePrice}
           />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
