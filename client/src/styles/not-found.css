@@ -1,0 +1,68 @@
+.not-found {
+  min-height: calc(100vh - 76px);
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell--side .not-found { min-height: calc(100vh - 92px); }
+
+.not-found__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.not-found__code {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--heading);
+  font-size: clamp(96px, 16vw, 168px);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 0.85;
+}
+
+.not-found__rule {
+  width: 64px;
+  height: 2px;
+  margin: 18px 0 22px;
+  background: var(--accent);
+}
+
+.not-found__text {
+  max-width: 42ch;
+  margin: 0 0 28px;
+  color: var(--muted);
+}
+
+.not-found__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+button.not-found__back {
+  margin-top: 18px;
+  padding: 8px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  min-height: 0;
+}
+
+button.not-found__back:hover { filter: none; color: var(--text); }
+
+.not-found__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 32px 22px;
+  color: var(--muted);
+  font-size: 14px;
+}

@@ -1,0 +1,27 @@
+.hero {
+  padding: 72px 40px 36px;
+  background:
+    radial-gradient(ellipse at 18% 0%, rgba(201, 168, 76, 0.16), transparent 42%),
+    linear-gradient(#111, #111);
+}
+
+.hero-title {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: clamp(72px, 10vw, 112px);
+  line-height: 0.9;
+  letter-spacing: 0.08em;
+}
+
+.hero-lead {
+  margin: 0 0 12px;
+  max-width: 16ch;
+  color: var(--text);
+  font-family: var(--heading);
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.2;
+}
+
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+
+.screen-block { padding: 12px 40px 72px; }

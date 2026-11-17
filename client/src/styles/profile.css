@@ -1,0 +1,13 @@
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.stat-value {
+  margin: 0;
+  font-family: var(--condensed);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--text);
+}

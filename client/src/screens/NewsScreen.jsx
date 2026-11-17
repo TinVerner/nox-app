@@ -1,9 +1,42 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
+import Modal from '../components/Modal'
+
+function NewsModal({ onClose, onSave }) {
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [error, setError] = useState('')
+
+  async function submit(event) {
+    event.preventDefault()
+    if (!title.trim() || !body.trim()) {
+      setError('Заполни поля')
+      return
+    }
+    setError('')
+    const ok = await onSave({ title: title.trim(), body: body.trim() })
+    if (ok) onClose()
+  }
+
+  return (
+    <Modal title="Новая новость" eyebrow="Новости" onClose={onClose}>
+      <form className="stack" onSubmit={submit}>
+        <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="заголовок" />
+        <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="текст" />
+        {error ? <p className="error">{error}</p> : null}
+        <div className="modal-actions">
+          <button type="button" className="btn-ghost" onClick={onClose}>Отмена</button>
+          <button type="submit" className="btn-primary">Опубликовать</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
 
 export default function NewsScreen({ me, news, onCreate }) {
   const [comments, setComments] = useState({})
   const [drafts, setDrafts] = useState({})
+  const [editor, setEditor] = useState(false)
 
   useEffect(() => {
     if (!news.length) {
@@ -41,15 +74,15 @@ export default function NewsScreen({ me, news, onCreate }) {
 
   return (
     <section className="screen">
-      <p className="eyebrow">Новости</p>
-      <h1>Лента клуба</h1>
-      {me?.role === 'ADMIN' && (
-        <form className="panel stack" onSubmit={onCreate} style={{ marginBottom: 16 }}>
-          <input name="title" placeholder="заголовок" required />
-          <input name="body" placeholder="текст" required />
-          <button type="submit">Опубликовать</button>
-        </form>
-      )}
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Новости</p>
+          <h1>Лента клуба</h1>
+        </div>
+        {me?.role === 'ADMIN' && (
+          <button type="button" className="btn-primary" onClick={() => setEditor(true)}>Новая новость</button>
+        )}
+      </div>
       {news.map((item) => (
         <article key={item.id} className="panel news-card">
           <h2>{item.title}</h2>
@@ -69,6 +102,9 @@ export default function NewsScreen({ me, news, onCreate }) {
           )}
         </article>
       ))}
+      {editor && (
+        <NewsModal onClose={() => setEditor(false)} onSave={onCreate} />
+      )}
     </section>
   )
 }

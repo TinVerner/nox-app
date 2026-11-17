@@ -1,4 +1,4 @@
-export default function RegisterScreen({ email, nick, password, passwordAgain, error, setEmail, setNick, setPassword, setPasswordAgain, onSubmit }) {
+export default function RegisterScreen({ email, nick, password, passwordAgain, error, busy, setEmail, setNick, setPassword, setPasswordAgain, onSubmit }) {
   return (
     <section className="auth">
       <div className="auth-brand">
@@ -21,7 +21,7 @@ export default function RegisterScreen({ email, nick, password, passwordAgain, e
           <input placeholder="ник" value={nick} onChange={(e) => setNick(e.target.value)} />
           <input placeholder="пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <input placeholder="пароль ещё раз" type="password" value={passwordAgain} onChange={(e) => setPasswordAgain(e.target.value)} />
-          <button type="submit">Создать</button>
+          <button type="submit" disabled={busy}>{busy ? 'Регистрация…' : 'Создать'}</button>
           {error && <p className="error">{error}</p>}
         </form>
       </div>

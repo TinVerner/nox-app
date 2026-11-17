@@ -8,6 +8,33 @@ const FILTERS = [
   { id: 'NOVICE', label: 'Новички' },
 ]
 
+const WEEKS = [
+  { id: 'WEEK', label: 'Эта неделя' },
+  { id: 'ALL', label: 'Все' },
+]
+
+const MINSK_WEEKDAY = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
+
+function minskWeek(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Minsk',
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const value = (type) => parts.find((part) => part.type === type).value
+  const monday = new Date(Date.UTC(Number(value('year')), Number(value('month')) - 1, Number(value('day'))))
+  monday.setUTCDate(monday.getUTCDate() - MINSK_WEEKDAY[value('weekday')])
+  const start = monday.getTime() - 3 * 60 * 60 * 1000
+  return { start, end: start + 7 * 24 * 60 * 60 * 1000 }
+}
+
+function inMinskWeek(iso, range) {
+  const time = new Date(iso).getTime()
+  return time >= range.start && time < range.end
+}
+
 const STATUS_LABEL = {
   DRAFT: 'Черновик',
   PUBLISHED: 'Опубликован',
@@ -92,12 +119,18 @@ function GameModal({ game, onClose, onSave }) {
 
 export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onLogin }) {
   const [kindFilter, setKindFilter] = useState('ALL')
+  const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
   const [editor, setEditor] = useState(null)
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
-  const visible = kindFilter === 'ALL' ? games : games.filter((game) => game.kind === kindFilter)
+  const week = minskWeek()
+  const visible = games.filter((game) => {
+    if (kindFilter !== 'ALL' && game.kind !== kindFilter) return false
+    if (weekFilter === 'WEEK' && !inMinskWeek(game.startsAt, week)) return false
+    return true
+  })
 
   return (
     <section className="screen">
@@ -112,6 +145,17 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
         )}
       </div>
       <div className="toolbar">
+        {WEEKS.map((item) => (
+          <button
+            key={'week-' + item.id}
+            type="button"
+            className="chip"
+            aria-current={weekFilter === item.id ? 'page' : undefined}
+            onClick={() => setWeekFilter(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
         {FILTERS.map((item) => (
           <button
             key={item.id}
@@ -124,6 +168,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           </button>
         ))}
       </div>
+      {weekFilter === 'WEEK' && visible.length === 0 && <p>На этой неделе вечеров нет</p>}
       <div className="night-list" key={reloadKey}>
       {visible.map((game) => {
         const when = nightParts(game.startsAt)

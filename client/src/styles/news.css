@@ -1,0 +1,3 @@
+.news-card { margin-bottom: 12px; }
+.news-card h2 { margin: 0 0 8px; font-size: 24px; }
+.comment { margin: 0; color: var(--muted); }

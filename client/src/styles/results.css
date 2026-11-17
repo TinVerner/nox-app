@@ -1,0 +1,14 @@
+.standings {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.standings li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}

@@ -1,0 +1,19 @@
+.link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.panel-link, button.panel-link {
+  display: flex;
+  align-items: flex-end;
+  min-height: 140px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--heading);
+  font-size: 22px;
+  text-align: left;
+}

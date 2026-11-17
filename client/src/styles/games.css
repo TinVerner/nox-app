@@ -1,0 +1,66 @@
+.night-list { display: flex; flex-direction: column; gap: 12px; }
+
+.night-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  gap: 16px 20px;
+  align-items: center;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.night-card__when {
+  display: flex;
+  flex-direction: column;
+  color: var(--accent);
+  font-family: var(--condensed);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.night-card__time {
+  color: var(--text);
+  font-family: var(--condensed);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.night-card__title {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-family: var(--heading);
+  font-size: 20px;
+}
+
+.night-card__side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.price {
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+
+.night-card__tools {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.night-card__tools input,
+.night-card__tools select { width: auto; min-width: 120px; }
+
+@media (max-width: 900px) {
+  .night-card { grid-template-columns: 1fr; }
+  .night-card__side { justify-content: space-between; }
+}

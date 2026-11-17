@@ -1,0 +1,23 @@
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.member-card, button.member-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 0;
+  font: inherit;
+}
+
+.member-card h2 { margin: 0; color: var(--accent); font-size: 22px; }
+.member-card p { margin: 0; color: var(--muted); }

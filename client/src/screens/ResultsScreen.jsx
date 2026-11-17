@@ -44,6 +44,10 @@ export default function ResultsScreen() {
   }
 
   const game = games.find((item) => item.id === gameId)
+  const finished = game?.status === 'DONE'
+  const standings = finished
+    ? [...results].sort((a, b) => (b.points - a.points) || String(a.nick).localeCompare(String(b.nick), 'ru'))
+    : results
 
   return (
     <section className="screen">
@@ -62,11 +66,26 @@ export default function ResultsScreen() {
           ))}
         </select>
       </div>
-      <div className="toolbar">
-        {results.map((row) => (
-          <span key={row.id} className="chip">{row.nick} · {row.points}</span>
-        ))}
-      </div>
+      {finished ? (
+        <div className="panel">
+          <h2>Итоги вечера</h2>
+          <ol className="standings">
+            {standings.map((row, index) => (
+              <li key={row.id}>
+                <span className="muted">{index + 1}</span>
+                <span>{row.nick}</span>
+                <span>{row.points}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : (
+        <div className="toolbar">
+          {results.map((row) => (
+            <span key={row.id} className="chip">{row.nick} · {row.points}</span>
+          ))}
+        </div>
+      )}
       {open && (
         <Modal title="Результат" eyebrow={game?.title || 'Вечер'} onClose={() => setOpen(false)}>
           <form className="stack" onSubmit={add}>

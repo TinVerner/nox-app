@@ -1,0 +1,21 @@
+.user-table { width: 100%; border-collapse: collapse; }
+.user-table th {
+  padding: 10px 8px;
+  text-align: left;
+  color: var(--muted);
+  font-family: var(--condensed);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.user-table td {
+  padding: 12px 8px;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.user-table tbody tr { cursor: pointer; }
+
+.user-table tbody tr:hover { color: var(--accent); }
+.user-actions { display: flex; flex-wrap: wrap; gap: 6px; }

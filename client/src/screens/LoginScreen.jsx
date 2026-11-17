@@ -1,4 +1,4 @@
-export default function LoginScreen({ email, password, error, setEmail, setPassword, onSubmit }) {
+export default function LoginScreen({ email, password, error, busy, setEmail, setPassword, onSubmit }) {
   return (
     <section className="auth">
       <div className="auth-brand">
@@ -19,7 +19,7 @@ export default function LoginScreen({ email, password, error, setEmail, setPassw
           <h1>Вход в аккаунт</h1>
           <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input placeholder="пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button type="submit">Войти</button>
+          <button type="submit" disabled={busy}>{busy ? 'Вход…' : 'Войти'}</button>
           {error && <p className="error">{error}</p>}
         </form>
       </div>

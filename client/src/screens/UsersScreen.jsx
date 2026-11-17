@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
+import Modal from '../components/Modal'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -11,6 +12,7 @@ export default function UsersScreen() {
   const [users, setUsers] = useState([])
   const [q, setQ] = useState('')
   const [role, setRole] = useState('')
+  const [selected, setSelected] = useState(null)
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -23,6 +25,11 @@ export default function UsersScreen() {
       .catch(() => setUsers([]))
   }, [q, role])
 
+  function apply(updated) {
+    setUsers((rows) => rows.map((user) => (user.id === updated.id ? updated : user)))
+    setSelected((current) => (current && current.id === updated.id ? updated : current))
+  }
+
   async function setUserRole(id, nextRole) {
     const res = await apiFetch('/api/users/' + id + '/role', {
       method: 'PATCH',
@@ -31,7 +38,7 @@ export default function UsersScreen() {
     })
     const updated = await res.json()
     if (!res.ok) return alert(updated.error || 'не вышло')
-    setUsers((rows) => rows.map((user) => (user.id === id ? updated : user)))
+    apply(updated)
   }
 
   async function setBlocked(id, blocked) {
@@ -42,7 +49,7 @@ export default function UsersScreen() {
     })
     const updated = await res.json()
     if (!res.ok) return alert(updated.error || 'не вышло')
-    setUsers((rows) => rows.map((user) => (user.id === id ? updated : user)))
+    apply(updated)
   }
 
   return (
@@ -65,30 +72,40 @@ export default function UsersScreen() {
             <th>Email</th>
             <th>Роль</th>
             <th>Статус</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
           {users.map((user) => (
-            <tr key={user.id}>
+            <tr key={user.id} onClick={() => setSelected(user)}>
               <td>{user.nick}</td>
               <td className="muted">{user.email}</td>
               <td>{ROLE[user.role] || user.role}</td>
               <td className={user.blocked ? 'status-wait' : 'status-ok'}>{user.blocked ? 'заблокирован' : 'активен'}</td>
-              <td>
-                <div className="user-actions">
-                  <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(user.id, 'PLAYER')}>игрок</button>
-                  <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(user.id, 'HOST')}>ведущий</button>
-                  <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(user.id, 'ADMIN')}>администратор</button>
-                  <button type="button" className="btn-danger btn-s" onClick={() => setBlocked(user.id, !user.blocked)}>
-                    {user.blocked ? 'Разблокировать' : 'Заблокировать'}
-                  </button>
-                </div>
-              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {selected && (
+        <Modal title={selected.nick} eyebrow="Пользователь" onClose={() => setSelected(null)}>
+          <p>Ник: {selected.nick}</p>
+          <p>Email: {selected.email}</p>
+          <p>Роль: {ROLE[selected.role] || selected.role}</p>
+          <p className={selected.blocked ? 'status-wait' : 'status-ok'}>
+            {selected.blocked ? 'заблокирован' : 'активен'}
+          </p>
+          <div className="user-actions">
+            <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'PLAYER')}>PLAYER</button>
+            <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'HOST')}>HOST</button>
+            <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'ADMIN')}>ADMIN</button>
+            <button type="button" className="btn-danger btn-s" onClick={() => setBlocked(selected.id, !selected.blocked)}>
+              {selected.blocked ? 'Разблокировать' : 'Заблокировать'}
+            </button>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={() => setSelected(null)}>Закрыть</button>
+          </div>
+        </Modal>
+      )}
     </section>
   )
 }
