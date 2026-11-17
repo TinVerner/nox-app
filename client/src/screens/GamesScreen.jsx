@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Modal from '../components/Modal'
 
 const FILTERS = [
   { id: 'ALL', label: 'Все' },
@@ -32,9 +33,67 @@ function nightParts(iso) {
   }
 }
 
-export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onLogin, onStatus, onKind, onPrice }) {
+function toLocalInput(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function GameModal({ game, onClose, onSave }) {
+  const [title, setTitle] = useState(game?.title || '')
+  const [startsAt, setStartsAt] = useState(game ? toLocalInput(game.startsAt) : '')
+  const [place, setPlace] = useState(game?.place || '')
+  const [seats, setSeats] = useState(game?.seats ?? '')
+  const [kind, setKind] = useState(game?.kind || 'CLASSIC')
+  const [price, setPrice] = useState(game?.price ?? 0)
+  const [status, setStatus] = useState(game?.status || 'PUBLISHED')
+
+  async function submit(event) {
+    event.preventDefault()
+    const ok = await onSave({
+      title,
+      startsAt,
+      place,
+      seats: Number(seats),
+      kind,
+      price: Number(price),
+      status,
+    })
+    if (ok) onClose()
+  }
+
+  return (
+    <Modal title={game ? 'Изменить вечер' : 'Новый вечер'} eyebrow="Вечера" onClose={onClose}>
+      <form className="stack" onSubmit={submit}>
+        <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="название" required />
+        <input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required />
+        <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="место" required />
+        <input type="number" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} placeholder="мест" required />
+        <select value={kind} onChange={(event) => setKind(event.target.value)}>
+          <option value="CLASSIC">Классика</option>
+          <option value="TOURNAMENT">Турнир</option>
+          <option value="NOVICE">Новички</option>
+        </select>
+        <input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="цена" required />
+        <select value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="DRAFT">Черновик</option>
+          <option value="PUBLISHED">Опубликован</option>
+          <option value="DONE">Завершён</option>
+        </select>
+        <div className="modal-actions">
+          <button type="button" className="btn-ghost" onClick={onClose}>Отмена</button>
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onLogin }) {
   const [kindFilter, setKindFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
+  const [editor, setEditor] = useState(null)
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
@@ -42,27 +101,16 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
 
   return (
     <section className="screen">
-      <p className="eyebrow">{eyebrow}</p>
-      <h1>{title}</h1>
-      {!me && <p className="lede">Выберите стол, проверьте места и запишитесь. Гостям доступен просмотр; запись — после входа.</p>}
-      {staff && (
-        <form className="panel stack" onSubmit={onCreate}>
-          <h2>Новый вечер</h2>
-          <div className="form-row">
-            <input name="title" placeholder="название" required />
-            <input name="startsAt" type="datetime-local" required />
-            <input name="place" placeholder="место" required />
-            <input name="seats" type="number" placeholder="мест" required />
-            <input name="price" type="number" min="0" placeholder="цена" defaultValue="0" />
-            <select name="kind" defaultValue="CLASSIC">
-              <option value="CLASSIC">Классика</option>
-              <option value="TOURNAMENT">Турнир</option>
-              <option value="NOVICE">Новички</option>
-            </select>
-            <button type="submit">Создать игру</button>
-          </div>
-        </form>
-      )}
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+          {!me && <p className="lede">Выберите стол, проверьте места и запишитесь. Гостям доступен просмотр; запись — после входа.</p>}
+        </div>
+        {staff && (
+          <button type="button" className="btn-primary" onClick={() => setEditor({ mode: 'create' })}>Новый вечер</button>
+        )}
+      </div>
       <div className="toolbar">
         {FILTERS.map((item) => (
           <button
@@ -76,17 +124,6 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           </button>
         ))}
       </div>
-      {pending && (
-        <div className="panel stack" style={{ marginBottom: 16 }}>
-          <p className="eyebrow">Подтверждение</p>
-          <h2 className="night-card__title">{pending.title}</h2>
-          <p className="muted">{new Date(pending.startsAt).toLocaleString('ru')}</p>
-          <div className="hero-actions">
-            <button type="button" className="btn-primary" onClick={() => { onBook(pending.id); setPending(null) }}>Записаться</button>
-            <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Отмена</button>
-          </div>
-        </div>
-      )}
       <div className="night-list" key={reloadKey}>
       {visible.map((game) => {
         const when = nightParts(game.startsAt)
@@ -102,35 +139,38 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
             </div>
             <div className="night-card__side">
               {game.price > 0 && <span className="price">{game.price} BYN</span>}
+              {staff && (
+                <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
+              )}
               <button type="button" className="btn-primary btn-s" onClick={() => (me ? setPending(game) : onLogin())}>Записаться</button>
             </div>
             {staff && (
               <div className="night-card__tools">
                 <span className={game.status === 'PUBLISHED' ? 'status-ok' : 'status-muted'}>{STATUS_LABEL[game.status] || game.status}</span>
-                <button type="button" className="btn-secondary btn-s" onClick={() => onStatus(game.id, 'DRAFT')}>Черновик</button>
-                <button type="button" className="btn-secondary btn-s" onClick={() => onStatus(game.id, 'PUBLISHED')}>Опубликован</button>
-                <button type="button" className="btn-secondary btn-s" onClick={() => onStatus(game.id, 'DONE')}>Завершён</button>
-                <select value={game.kind || 'CLASSIC'} onChange={(e) => onKind(game.id, e.target.value)}>
-                  <option value="CLASSIC">Классика</option>
-                  <option value="TOURNAMENT">Турнир</option>
-                  <option value="NOVICE">Новички</option>
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  aria-label="цена"
-                  defaultValue={game.price ?? 0}
-                  onBlur={(e) => {
-                    if (String(game.price ?? 0) === e.target.value) return
-                    onPrice(game.id, e.target.value)
-                  }}
-                />
               </div>
             )}
           </article>
         )
       })}
       </div>
+      {pending && (
+        <Modal title={pending.title} eyebrow="Запись" onClose={() => setPending(null)}>
+          <p>{new Date(pending.startsAt).toLocaleString('ru')}</p>
+          <p className="muted">{pending.place}</p>
+          <p className="price">{pending.price > 0 ? `${pending.price} BYN` : '0 BYN'}</p>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={() => setPending(null)}>Отмена</button>
+            <button type="button" className="btn-primary" onClick={() => { onBook(pending.id); setPending(null) }}>Записаться</button>
+          </div>
+        </Modal>
+      )}
+      {editor && (
+        <GameModal
+          game={editor.mode === 'edit' ? editor.game : null}
+          onClose={() => setEditor(null)}
+          onSave={(payload) => (editor.mode === 'edit' ? onUpdate(editor.game.id, payload) : onCreate(payload))}
+        />
+      )}
     </section>
   )
 }

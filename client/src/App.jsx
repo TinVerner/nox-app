@@ -155,57 +155,34 @@ function App() {
     alert(res.ok ? 'ты записана' : (data.error || 'не вышло'))
   }
 
-  async function setGamePrice(id, price) {
-    const res = await apiFetch('/api/games/' + id, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ price: Number(price) }),
-    })
-    if (!res.ok) return alert('не вышло')
-    const updated = await res.json()
-    setGames(games.map((game) => (game.id === id ? updated : game)))
-  }
-
-  async function setGameKind(id, kind) {
-    const res = await apiFetch('/api/games/' + id, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind }),
-    })
-    if (!res.ok) return alert('не вышло')
-    const updated = await res.json()
-    setGames(games.map((game) => (game.id === id ? updated : game)))
-  }
-
-  async function setGameStatus(id, status) {
-    const res = await apiFetch('/api/games/' + id, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-    if (!res.ok) return alert('не вышло')
-    const updated = await res.json()
-    setGames(games.map((game) => (game.id === id ? updated : game)))
-  }
-
-  async function createGame(e) {
-    e.preventDefault()
-    const form = new FormData(e.target)
+  async function createGame(payload) {
     const res = await apiFetch('/api/games', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: form.get('title'),
-        startsAt: form.get('startsAt'),
-        place: form.get('place'),
-        seats: form.get('seats'),
-        kind: form.get('kind') || 'CLASSIC',
-        price: Number(form.get('price') || 0),
-      }),
+      body: JSON.stringify(payload),
     })
-    if (!res.ok) return alert('не вышло')
-    setGames([await res.json(), ...games])
-    e.target.reset()
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(data.error || 'не вышло')
+      return false
+    }
+    setGames([data, ...games])
+    return true
+  }
+
+  async function updateGame(id, payload) {
+    const res = await apiFetch('/api/games/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(data.error || 'не вышло')
+      return false
+    }
+    setGames(games.map((game) => (game.id === id ? data : game)))
+    return true
   }
 
   async function createNews(e) {
@@ -246,10 +223,8 @@ function App() {
             reloadKey={gamesReload}
             onBook={book}
             onCreate={createGame}
+            onUpdate={updateGame}
             onLogin={() => setScreen('login')}
-            onStatus={setGameStatus}
-            onKind={setGameKind}
-            onPrice={setGamePrice}
           />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
