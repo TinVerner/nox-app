@@ -1,40 +1,40 @@
-# NOX — каркас приложения (шаг 2)
+# NOX
 
-Постепенный greenfield для курсовой СТСР. Старый код в `Приложение\` не трогаем.
+Клубное приложение: React в `client/`, Express в `server/`. Точка входа API — `server/index.js`. Её вызывают `npm start`, `npm run dev` и образ API.
 
-## Что здесь лежит
+## Локально
 
-| Путь | Назначение |
-|------|------------|
-| `client/` | Фронтенд (позже Vite + React). Пока пусто. |
-| `server/` | Бэкенд Express: hello-маршрут `/api/health`. |
-| `docker-compose.yml` | Описание трёх сервисов: `web`, `api`, `db`. Пока скелет с комментариями. |
-| `.env.example` | Шаблон переменных Postgres. Скопируйте в `.env` перед работой с БД. |
-| `.gitignore` | Исключает `node_modules`, `.env`, сборки и т.п. |
-
-## Запуск API локально (шаг 2)
+Нужны Node.js и PostgreSQL. В `server/.env` лежат `DATABASE_URL` и `SESSION_SECRET`. Без `SESSION_SECRET` процесс не стартует.
 
 ```bash
 cd server
 npm install
+npx prisma generate
 npm run dev
 ```
 
-Открой в браузере или curl: [http://localhost:3000/api/health](http://localhost:3000/api/health)  
-Ожидаемый JSON: `{ "ok": true, "message": "NOX API hello" }`.
+`npm run dev` — `node --watch index.js`. `npm start` — `node index.js`. Порт `3000` или `PORT`.
 
-- `npm run dev` — перезапуск при правках (`node --watch`).
-- `npm start` — обычный запуск без watch.
-- Порт: `3000` или переменная `PORT`.
+Проверка: [http://localhost:3000/api/health](http://localhost:3000/api/health) отвечает `{ "ok": true, "message": "NOX API hello" }`. Сокет расписания: `ws://localhost:3000/ws`.
 
-## Как сюда войдёт Docker позже
+Клиент:
 
-1. Появятся `Dockerfile` в `client/` и `server/`.
-2. В `docker-compose.yml` раскомментируют `build` / `depends_on`.
-3. Команда `docker compose up` поднимет фронт (5173), API (3000) и Postgres (5432).
+```bash
+cd client
+npm install
+npm run dev
+```
 
-Сервис `db` уже описан на образе `postgres:16-alpine`. Полный стек пока рано — нет фронта и Prisma.
+Vite открывает [http://localhost:5173](http://localhost:5173). Запросы к API идут с `credentials: 'include'`.
 
-## Статус
+Сезон «Осень 2026», если сезонов ещё нет, создаётся при первом `GET /api/seasons` и скриптом `node ensure-season.js` из `server/`.
 
-**Шаг 2 выполнен:** минимальный Express hello в `server/`. Vite/Prisma ещё нет.
+## Docker
+
+`docker-compose.yml` собирает `web` (5173), `api` (3000) и `db` (Postgres 16, порт 5432, том `nox_pg_data`). API читает `server/.env`. Параметры Postgres для сервиса `db` берутся из корневого `.env`: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
+
+```bash
+docker compose up --build
+```
+
+Схема Prisma и опубликованные порты этим файлом не переопределяются.

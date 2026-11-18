@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from './api'
+import { useSession } from './hooks/useSession'
+import { useGamesSocket } from './hooks/useGamesSocket'
 import TopNav from './components/TopNav'
 import SideNav from './components/SideNav'
 import HomeScreen from './screens/HomeScreen'
@@ -50,7 +52,7 @@ function passwordMeetsRules(password) {
 }
 
 function App() {
-  const [me, setMe] = useState(null)
+  const { me, setMe, logout: endSession } = useSession()
   const [screen, setScreen] = useState('home')
   const [memberId, setMemberId] = useState(null)
   const [memberBack, setMemberBack] = useState('members')
@@ -63,14 +65,10 @@ function App() {
   const authLock = useRef(false)
   const [news, setNews] = useState([])
   const [games, setGames] = useState([])
-  const [gamesReload, setGamesReload] = useState(0)
   const [rating, setRating] = useState([])
-  const [notice, setNotice] = useState('')
-  const [noticeKey, setNoticeKey] = useState(0)
+  const { gamesReload, notice, setNotice } = useGamesSocket(screen)
   const shell = shellFor(me)
-  const screenRef = useRef(screen)
   const previousScreen = useRef('home')
-  screenRef.current = screen
 
   function openScreen(next) {
     setScreen((current) => {
@@ -120,13 +118,6 @@ function App() {
   }, [])
 
   useEffect(() => {
-    apiFetch('/api/me')
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setMe)
-      .catch(() => setMe(null))
-  }, [])
-
-  useEffect(() => {
     if (!me) return
     setScreen((current) => {
       if (current !== 'home') return current
@@ -143,44 +134,6 @@ function App() {
     if (screen !== 'games') return
     apiFetch('/api/games').then((r) => r.json()).then(setGames)
   }, [screen, gamesReload])
-
-  useEffect(() => {
-    let socket
-    try {
-      socket = new WebSocket('ws://localhost:3000/ws')
-      socket.onmessage = (event) => {
-        let data
-        try {
-          data = JSON.parse(event.data)
-        } catch {
-          return
-        }
-        if (data?.type !== 'games') return
-        if (data.notice) {
-          setNotice(data.notice)
-          setNoticeKey((key) => key + 1)
-        }
-        const current = screenRef.current
-        if (current !== 'games' && current !== 'home') return
-        setGamesReload((n) => n + 1)
-      }
-    } catch {
-      return
-    }
-    return () => {
-      try {
-        socket.close()
-      } catch {
-        // the schedule still loads through the normal fetch
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!notice) return undefined
-    const timer = window.setTimeout(() => setNotice(''), 4000)
-    return () => window.clearTimeout(timer)
-  }, [notice, noticeKey])
 
   useEffect(() => {
     if (screen !== 'rating') return
@@ -253,9 +206,8 @@ function App() {
   }
 
   async function logout() {
-    await apiFetch('/api/logout', { method: 'POST' })
+    await endSession()
     setNotice('')
-    setMe(null)
     go('home')
   }
 
