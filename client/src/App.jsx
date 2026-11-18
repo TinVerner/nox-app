@@ -19,15 +19,18 @@ import SeasonsScreen from './screens/SeasonsScreen'
 import OverviewScreen from './screens/OverviewScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
-import CatalogScreen from './screens/CatalogScreen'
 import SanctionsScreen from './screens/SanctionsScreen'
 import RulesScreen from './screens/RulesScreen'
+import PointRulesScreen from './screens/PointRulesScreen'
+import NoticesScreen from './screens/NoticesScreen'
+import RanksScreen from './screens/RanksScreen'
+import AboutScreen from './screens/AboutScreen'
 import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
   'bookings', 'profile', 'results', 'seasons', 'overview', 'settings', 'login', 'register',
-  'catalog', 'sanctions', 'rules',
+  'sanctions', 'rules', 'points', 'notices', 'ranks', 'about',
 ])
 
 function shellFor(user) {
@@ -100,6 +103,10 @@ function App() {
         return
       }
       const name = decodeURIComponent(window.location.hash.replace(/^#/, ''))
+      if (name === 'upcoming' || name === '/upcoming') {
+        openScreen('games')
+        return
+      }
       if (!name || KNOWN_SCREENS.has(name)) return
       openScreen(name)
     }
@@ -278,6 +285,14 @@ function App() {
     return true
   }
 
+  async function cancelNight(id) {
+    const res = await apiFetch('/api/games/' + id + '/cancel', { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: data.error || 'не вышло' }
+    setGames((list) => (list || []).map((game) => (game.id === id ? data : game)))
+    return { ok: true }
+  }
+
   async function updateGame(id, payload) {
     const res = await apiFetch('/api/games/' + id, {
       method: 'PATCH',
@@ -341,6 +356,7 @@ function App() {
             onBook={book}
             onCreate={createGame}
             onUpdate={updateGame}
+            onCancelNight={cancelNight}
             onLogin={() => go('login')}
           />
         )}
@@ -362,9 +378,12 @@ function App() {
         {screen === 'seasons' && <SeasonsScreen />}
         {screen === 'overview' && <OverviewScreen setScreen={go} />}
         {screen === 'settings' && <SettingsScreen />}
-        {screen === 'catalog' && <CatalogScreen />}
         {screen === 'sanctions' && <SanctionsScreen />}
         {screen === 'rules' && <RulesScreen />}
+        {screen === 'points' && <PointRulesScreen />}
+        {screen === 'notices' && <NoticesScreen />}
+        {screen === 'ranks' && <RanksScreen me={me} />}
+        {screen === 'about' && <AboutScreen />}
         {screen === 'login' && (
           <LoginScreen
             email={email}

@@ -1,113 +1,125 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
-import Modal from '../components/Modal'
+
+const ROLES = ['Мирный', 'Мафия', 'Шериф', 'Дон']
+const RESULTS = ['Победа', 'Поражение']
 
 export default function ResultsScreen() {
   const [games, setGames] = useState([])
   const [gameId, setGameId] = useState('')
-  const [nick, setNick] = useState('')
-  const [points, setPoints] = useState('')
-  const [results, setResults] = useState([])
-  const [open, setOpen] = useState(false)
+  const [parties, setParties] = useState([])
+  const [partyId, setPartyId] = useState('')
+  const [playerName, setPlayerName] = useState('')
+  const [playerRole, setPlayerRole] = useState(ROLES[0])
+  const [gameResult, setGameResult] = useState(RESULTS[0])
+  const [extraPoints, setExtraPoints] = useState('0')
+  const [penaltyPoints, setPenaltyPoints] = useState('0')
   const [error, setError] = useState('')
 
   useEffect(() => {
     apiFetch('/api/games')
-      .then((r) => (r.ok ? r.json() : []))
+      .then((response) => (response.ok ? response.json() : []))
       .then((items) => {
         setGames(items)
-        if (items[0]) setGameId(items[0].id)
+        if (items[0]) setGameId(String(items[0].id))
       })
       .catch(() => setGames([]))
   }, [])
 
   useEffect(() => {
     if (!gameId) return
-    apiFetch('/api/results?gameId=' + encodeURIComponent(gameId))
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setResults)
-      .catch(() => setResults([]))
+    apiFetch('/api/games/' + gameId + '/parties')
+      .then((response) => (response.ok ? response.json() : []))
+      .then((rows) => {
+        setParties(rows)
+        setPartyId((current) => current || (rows[0] ? String(rows[0].id) : ''))
+      })
+      .catch(() => setParties([]))
   }, [gameId])
 
-  async function add(event) {
-    event.preventDefault()
-    const res = await apiFetch('/api/results', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, nick, points }),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setError(data.error || 'не вышло')
-      return
-    }
-    const row = await res.json()
-    setResults((rows) => [row, ...rows])
-    setNick('')
-    setPoints('')
+  const party = parties.find((item) => String(item.id) === String(partyId))
+
+  async function addParty() {
     setError('')
-    setOpen(false)
+    const res = await apiFetch('/api/games/' + gameId + '/parties', { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return setError(data.error || 'не вышло')
+    setParties((rows) => [...rows, data])
+    setPartyId(String(data.id))
   }
 
-  const game = games.find((item) => item.id === gameId)
-  const finished = game?.status === 'DONE'
-  const standings = finished
-    ? [...results].sort((a, b) => (b.points - a.points) || String(a.nick).localeCompare(String(b.nick), 'ru'))
-    : results
+  async function addPlayer(event) {
+    event.preventDefault()
+    setError('')
+    const res = await apiFetch('/api/parties/' + partyId + '/players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerName,
+        playerRole,
+        gameResult,
+        extraPoints: Number(extraPoints),
+        penaltyPoints: Number(penaltyPoints),
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return setError(data.error || 'не вышло')
+    setParties((rows) => rows.map((item) => (
+      String(item.id) === String(partyId) ? { ...item, players: [...item.players, data] } : item
+    )))
+    setPlayerName('')
+    setExtraPoints('0')
+    setPenaltyPoints('0')
+  }
 
   return (
     <section className="screen">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Результаты</p>
-          <h1>{game ? game.title : 'Результаты вечеров'}</h1>
-          {game?.startsAt && <p className="muted">{new Date(game.startsAt).toLocaleString('ru')}{game.place ? ` · ${game.place}` : ''}</p>}
+          <p className="eyebrow">Ведущий</p>
+          <h1>Партии вечера</h1>
         </div>
-        <button type="button" className="btn-primary" disabled={!gameId} onClick={() => setOpen(true)}>Добавить</button>
+        <button type="button" className="btn-primary" disabled={!gameId} onClick={addParty}>Новая партия</button>
       </div>
       <div className="toolbar">
-        <select value={gameId} onChange={(event) => setGameId(event.target.value)}>
+        <select value={gameId} onChange={(event) => { setGameId(event.target.value); setPartyId('') }}>
           {games.map((item) => (
             <option key={item.id} value={item.id}>{item.title}</option>
           ))}
         </select>
-      </div>
-      {games.length === 0 ? <p className="muted">пусто</p> : finished ? (
-        <div className="panel">
-          <h2>Итоги вечера</h2>
-          {standings.length === 0 ? <p className="muted">пусто</p> : (
-            <ol className="standings">
-              {standings.map((row, index) => (
-                <li key={row.id}>
-                  <span className="muted">{index + 1}</span>
-                  <span>{row.nick}</span>
-                  <span>{row.points}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      ) : results.length === 0 ? (
-        <p className="muted">пусто</p>
-      ) : (
-        <div className="toolbar">
-          {results.map((row) => (
-            <span key={row.id} className="chip">{row.nick} · {row.points}</span>
+        <select value={partyId} onChange={(event) => setPartyId(event.target.value)}>
+          {parties.map((item) => (
+            <option key={item.id} value={item.id}>Партия {item.partyNumber}</option>
           ))}
-        </div>
-      )}
-      {open && (
-        <Modal title="Результат" eyebrow={game?.title || 'Вечер'} onClose={() => { setError(''); setOpen(false) }}>
-          <form className="stack" onSubmit={add}>
-            <input placeholder="ник" value={nick} onChange={(event) => setNick(event.target.value)} required />
-            <input placeholder="очки" type="number" value={points} onChange={(event) => setPoints(event.target.value)} required />
-            {error && <p className="error">{error}</p>}
-            <div className="modal-actions">
-              <button type="button" className="btn-ghost" onClick={() => { setError(''); setOpen(false) }}>Отмена</button>
-              <button type="submit">Добавить</button>
-            </div>
+        </select>
+      </div>
+      {error ? <p className="error">{error}</p> : null}
+      {!party ? <p className="muted">пусто</p> : (
+        <>
+          <form className="panel stack" onSubmit={addPlayer}>
+            <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="имя игрока" required />
+            <select value={playerRole} onChange={(event) => setPlayerRole(event.target.value)}>
+              {ROLES.map((role) => <option key={role}>{role}</option>)}
+            </select>
+            <select value={gameResult} onChange={(event) => setGameResult(event.target.value)}>
+              {RESULTS.map((result) => <option key={result}>{result}</option>)}
+            </select>
+            <input type="number" step="0.5" value={extraPoints} onChange={(event) => setExtraPoints(event.target.value)} placeholder="дополнительные очки" />
+            <input type="number" step="0.5" value={penaltyPoints} onChange={(event) => setPenaltyPoints(event.target.value)} placeholder="штраф" />
+            <button type="submit" className="btn-primary">Добавить в партию</button>
           </form>
-        </Modal>
+          {party.players.length === 0 ? <p className="muted">пусто</p> : (
+            <div className="stack">
+              {party.players.map((player) => (
+                <article key={player.id} className="panel">
+                  <h2>{player.playerName}</h2>
+                  <p>{player.playerRole} · {player.gameResult}</p>
+                  <p className="muted">база {player.basePoints} · доп. {player.extraPoints} · штраф {player.penaltyPoints} · итог {player.total}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   )

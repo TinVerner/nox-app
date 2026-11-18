@@ -33,51 +33,101 @@ function NewsModal({ onClose, onSave }) {
   )
 }
 
-export default function NewsScreen({ me, news, onCreate }) {
-  const [comments, setComments] = useState({})
-  const [drafts, setDrafts] = useState({})
-  const [editor, setEditor] = useState(false)
-  const [likes, setLikes] = useState({})
+function CommentsModal({ item, me, onClose }) {
+  const [rows, setRows] = useState(null)
+  const [text, setText] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!news.length) {
-      setComments({})
-      return
-    }
     let cancelled = false
-    Promise.all(news.map((item) =>
-      apiFetch('/api/news/' + item.id + '/comments')
-        .then((r) => (r.ok ? r.json() : []))
-        .then((rows) => [item.id, rows])
-        .catch(() => [item.id, []])
-    )).then((pairs) => {
-      if (!cancelled) setComments(Object.fromEntries(pairs))
-    })
+    apiFetch('/api/news/' + item.id + '/comments')
+      .then((response) => (response.ok ? response.json() : []))
+      .then((list) => {
+        if (!cancelled) setRows(list)
+      })
+      .catch(() => {
+        if (!cancelled) setRows([])
+      })
     return () => {
       cancelled = true
     }
-  }, [news])
+  }, [item.id])
 
-  async function comment(e, newsId) {
-    e.preventDefault()
-    const text = (drafts[newsId] || '').trim()
-    if (!text) return
-    const res = await apiFetch('/api/news/' + newsId + '/comments', {
+  async function submit(event) {
+    event.preventDefault()
+    const body = text.trim()
+    if (!body) {
+      setError('Напиши комментарий')
+      return
+    }
+    setError('')
+    const response = await apiFetch('/api/news/' + item.id + '/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: text }),
+      body: JSON.stringify({ body }),
     })
-    if (!res.ok) return alert('не вышло')
-    const row = await res.json()
-    setComments((prev) => ({ ...prev, [newsId]: [...(prev[newsId] || []), row] }))
-    setDrafts((prev) => ({ ...prev, [newsId]: '' }))
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(data.error || 'не вышло')
+      return
+    }
+    setRows((prev) => [...(prev || []), data])
+    setText('')
   }
+
+  async function remove(commentId) {
+    setError('')
+    const response = await apiFetch('/api/news/' + item.id + '/comments/' + commentId, { method: 'DELETE' })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error || 'не вышло')
+      return
+    }
+    setRows((prev) => (prev || []).filter((row) => row.id !== commentId))
+  }
+
+  return (
+    <Modal title={item.title} eyebrow="Комментарии" onClose={onClose} showClose>
+      {rows === null ? null : rows.length === 0 ? (
+        <p className="muted">пока нет комментариев</p>
+      ) : (
+        <div className="comment-list">
+          {rows.map((row) => (
+            <div className="comment" key={row.id}>
+              <p>{row.nick}: {row.body}</p>
+              {me && row.userId === me.id ? (
+                <button type="button" className="btn-ghost btn-s" onClick={() => remove(row.id)}>Удалить</button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+      {me ? (
+        <form className="stack" onSubmit={submit}>
+          <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="комментарий" />
+          {error ? <p className="error">{error}</p> : null}
+          <div className="modal-actions">
+            <button type="submit" className="btn-primary">Отправить</button>
+          </div>
+        </form>
+      ) : (
+        <p className="muted">Чтобы написать, войди</p>
+      )}
+    </Modal>
+  )
+}
+
+export default function NewsScreen({ me, news, onCreate }) {
+  const [editor, setEditor] = useState(false)
+  const [likes, setLikes] = useState({})
+  const [openId, setOpenId] = useState(null)
+  const open = news.find((item) => item.id === openId) || null
 
   async function react(item) {
     if (!me) return
-    const res = await apiFetch('/api/news/' + item.id + '/reactions', { method: 'POST' })
-    if (!res.ok) return
-    const data = await res.json()
+    const response = await apiFetch('/api/news/' + item.id + '/reactions', { method: 'POST' })
+    if (!response.ok) return
+    const data = await response.json()
     setLikes((prev) => ({ ...prev, [item.id]: data }))
   }
 
@@ -93,28 +143,30 @@ export default function NewsScreen({ me, news, onCreate }) {
         )}
       </div>
       {news.length === 0 && <p className="muted">пусто</p>}
-      {news.map((item) => (
-        <article key={item.id} className="panel news-card">
-          <h2>{item.title}</h2>
-          <p>{item.body}</p>
-          <button type="button" className="btn-ghost btn-s" onClick={() => react(item)} disabled={!me}>
-            {(likes[item.id]?.liked ?? item.liked) ? 'Нравится' : 'Отметить'} · {likes[item.id]?.likes ?? item.likes ?? 0}
-          </button>
-          {(comments[item.id] || []).map((row) => (
-            <p className="comment" key={row.id}>{row.nick}: {row.body}</p>
-          ))}
-          {me && (
-            <form className="stack" onSubmit={(e) => comment(e, item.id)}>
-              <textarea
-                value={drafts[item.id] || ''}
-                onChange={(e) => setDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                placeholder="комментарий"
-              />
-              <button type="submit" className="btn-secondary">Комментировать</button>
-            </form>
-          )}
-        </article>
-      ))}
+      {news.map((item) => {
+        const liked = likes[item.id]?.liked ?? item.liked
+        const count = likes[item.id]?.likes ?? item.likes ?? 0
+        return (
+          <article key={item.id} className="panel news-card">
+            <h2>{item.title}</h2>
+            <p>{item.body}</p>
+            <div className="news-actions">
+              <button
+                type="button"
+                className="btn-ghost btn-s news-like"
+                aria-pressed={liked ? 'true' : 'false'}
+                onClick={() => react(item)}
+              >
+                Нравится {count}
+              </button>
+              <button type="button" className="btn-ghost btn-s" onClick={() => setOpenId(item.id)}>
+                Комментарий
+              </button>
+            </div>
+          </article>
+        )
+      })}
+      {open && <CommentsModal item={open} me={me} onClose={() => setOpenId(null)} />}
       {editor && (
         <NewsModal onClose={() => setEditor(false)} onSave={onCreate} />
       )}

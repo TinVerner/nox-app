@@ -2,6 +2,8 @@ const LINKS = [
   { screen: 'home', label: 'Главная' },
   { screen: 'games', label: 'Расписание' },
   { screen: 'rating', label: 'Рейтинг' },
+  { screen: 'news', label: 'Новости' },
+  { screen: 'about', label: 'О нас' },
 ]
 
 export default function TopNav({ screen, setScreen }) {

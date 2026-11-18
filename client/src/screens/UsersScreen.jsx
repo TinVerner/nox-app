@@ -45,6 +45,10 @@ export default function UsersScreen() {
   }
 
   async function setRank(id, rank) {
+    if (rank) {
+      setError('заявку подаёт игрок')
+      return
+    }
     const res = await apiFetch('/api/members/' + id + '/rank', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

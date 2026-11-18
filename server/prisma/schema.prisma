@@ -8,126 +8,282 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  nick      String
-  role      String   @default("PLAYER")
-  blocked   Boolean  @default(false)
-  rank      String?
-  bonus     Int      @default(0)
-  createdAt DateTime @default(now())
-  comments  Comment[]
-  reactions Reaction[]
-  sanctions Sanction[]
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name") @db.VarChar(100)
+  role         String   @default("PLAYER") @db.VarChar(20)
+  status       String   @default("ACTIVE") @db.VarChar(20)
+  avatarPath   String?  @map("avatar_path")
+  bonusBalance Decimal  @default(0) @map("bonus_balance") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sessions           Session[]
+  hostedNights       GameNight[]         @relation("NightHost")
+  bookings           Booking[]
+  createdParties     Party[]             @relation("PartyCreator")
+  partyPlayers       PartyPlayer[]
+  ranks              UserRank[]          @relation("RankHolder")
+  confirmedRanks     UserRank[]          @relation("RankConfirmer")
+  sanctions          Sanction[]          @relation("SanctionUser")
+  reportedSanctions  Sanction[]          @relation("SanctionReporter")
+  approvedSanctions  Sanction[]          @relation("SanctionApprover")
+  newsPosts          NewsPost[]
+  comments           Comment[]
+  reactions          Reaction[]
+  notifications      Notification[]
+
+  @@map("users")
 }
 
-model ClubSettings {
-  id           String  @id @default(cuid())
-  name         String  @default("NOX")
-  bookingOpen  Boolean @default(true)
-  waitlistSize Int     @default(4)
-}
+model Session {
+  id        String   @id @db.VarChar(128)
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-model News {
-  id        String    @id @default(cuid())
-  title     String
-  body      String
-  createdAt DateTime  @default(now())
-  comments  Comment[]
-  reactions Reaction[]
-}
-
-model Comment {
-  id        String   @id @default(cuid())
-  newsId    String
-  news      News     @relation(fields: [newsId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  body      String
-  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 model Season {
-  id     String  @id @default(cuid())
-  name   String
-  closed Boolean @default(false)
-  games  Game[]
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  startsOn  DateTime @map("starts_on") @db.Date
+  endsOn    DateTime @map("ends_on") @db.Date
+  status    String   @default("PLANNED") @db.VarChar(20)
+  nights    GameNight[]
+
+  @@map("seasons")
 }
 
-model Game {
-  id       String   @id @default(cuid())
-  title    String
-  startsAt DateTime
-  place    String
-  seats    Int
-  status   String   @default("PUBLISHED")
-  kind     String   @default("CLASSIC")
-  price    Int      @default(0)
-  seasonId String?
-  season   Season?  @relation(fields: [seasonId], references: [id])
-  results  Result[]
-}
+model GameNight {
+  id                     Int       @id @default(autoincrement())
+  hostId                 Int       @map("host_id")
+  format                 String    @db.VarChar(100)
+  seasonId               Int?      @map("season_id")
+  title                  String    @db.VarChar(200)
+  description            String?
+  startsAt               DateTime  @map("starts_at")
+  registrationDeadlineAt DateTime? @map("registration_deadline_at")
+  capacity               Int
+  status                 String    @default("PLANNED") @db.VarChar(20)
+  imagePath              String?   @map("image_path")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  host                   User      @relation("NightHost", fields: [hostId], references: [id])
+  season                 Season?   @relation(fields: [seasonId], references: [id])
+  bookings               Booking[]
+  parties                Party[]
 
-model Result {
-  id        String   @id @default(cuid())
-  gameId    String
-  nick      String
-  points    Int
-  createdAt DateTime @default(now())
-  game      Game     @relation(fields: [gameId], references: [id])
+  @@index([startsAt])
+  @@index([status, startsAt])
+  @@index([hostId])
+  @@index([seasonId])
+  @@map("game_nights")
 }
 
 model Booking {
-  id        String   @id @default(cuid())
-  userId    String
-  gameId    String
-  status    String   @default("CONFIRMED")
-  createdAt DateTime @default(now())
-  guests    BookingGuest[]
+  id                   Int       @id @default(autoincrement())
+  gameNightId          Int       @map("game_night_id")
+  userId               Int       @map("user_id")
+  status               String    @default("CONFIRMED") @db.VarChar(20)
+  hostNotifiedAt       DateTime? @map("host_notified_at")
+  cancellationReason   String?   @map("cancellation_reason")
+  cancelledAt          DateTime? @map("cancelled_at")
+  overCapacityOverride Boolean   @default(false) @map("over_capacity_override")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  night                GameNight @relation(fields: [gameNightId], references: [id])
+  user                 User      @relation(fields: [userId], references: [id])
+  guests               BookingGuest[]
 
-  @@unique([userId, gameId])
+  @@unique([gameNightId, userId])
+  @@index([gameNightId, status])
+  @@index([userId, status])
+  @@map("bookings")
 }
 
 model BookingGuest {
-  id          String   @id @default(cuid())
-  bookingId   String
-  displayName String
-  createdAt   DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  bookingId   Int      @map("booking_id")
+  displayName String   @map("display_name") @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
   booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_guests")
 }
 
-model Reaction {
-  id        String   @id @default(cuid())
-  newsId    String
-  userId    String
-  createdAt DateTime @default(now())
-  news      News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Party {
+  id          Int       @id @default(autoincrement())
+  gameNightId Int       @map("game_night_id")
+  partyNumber Int       @map("party_number")
+  status      String    @default("DRAFT") @db.VarChar(20)
+  createdBy   Int       @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  finalizedAt DateTime? @map("finalized_at")
+  night       GameNight @relation(fields: [gameNightId], references: [id])
+  creator     User      @relation("PartyCreator", fields: [createdBy], references: [id])
+  players     PartyPlayer[]
 
-  @@unique([newsId, userId])
+  @@unique([gameNightId, partyNumber])
+  @@map("parties")
+}
+
+model PointRule {
+  id          Int      @id @default(autoincrement())
+  format      String   @db.VarChar(100)
+  playerRole  String   @map("player_role") @db.VarChar(50)
+  gameResult  String   @map("game_result") @db.VarChar(30)
+  points      Decimal  @db.Decimal(8, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([format, playerRole, gameResult])
+  @@map("point_rules")
+}
+
+model PartyPlayer {
+  id               Int      @id @default(autoincrement())
+  partyId          Int      @map("party_id")
+  userId           Int?     @map("user_id")
+  playerName       String   @map("player_name") @db.VarChar(100)
+  playerRole       String   @map("player_role") @db.VarChar(50)
+  gameResult       String   @map("game_result") @db.VarChar(30)
+  basePoints       Decimal  @default(0) @map("base_points") @db.Decimal(8, 2)
+  extraPoints      Decimal  @default(0) @map("extra_points") @db.Decimal(8, 2)
+  penaltyPoints    Decimal  @default(0) @map("penalty_points") @db.Decimal(8, 2)
+  attendanceStatus String   @default("PRESENT") @map("attendance_status") @db.VarChar(20)
+  note             String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  party            Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  user             User?    @relation(fields: [userId], references: [id])
+
+  @@index([partyId])
+  @@index([userId])
+  @@map("party_players")
+}
+
+model RankDefinition {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique @db.VarChar(30)
+  name      String   @db.VarChar(100)
+  criteria  Json     @default("{}")
+  benefits  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  holders   UserRank[]
+
+  @@map("rank_definitions")
+}
+
+model UserRank {
+  id          Int            @id @default(autoincrement())
+  userId      Int            @map("user_id")
+  rankId      Int            @map("rank_id")
+  status      String         @default("PENDING") @db.VarChar(20)
+  requestedAt DateTime       @default(now()) @map("requested_at")
+  confirmedBy Int?           @map("confirmed_by")
+  confirmedAt DateTime?      @map("confirmed_at")
+  note        String?
+  user        User           @relation("RankHolder", fields: [userId], references: [id])
+  rank        RankDefinition @relation(fields: [rankId], references: [id])
+  confirmer   User?          @relation("RankConfirmer", fields: [confirmedBy], references: [id])
+
+  @@index([userId, status])
+  @@map("user_ranks")
 }
 
 model Sanction {
-  id         String   @id @default(cuid())
-  userId     String
-  kind       String
-  reason     String
-  bonusDelta Int      @default(0)
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  reportedBy     Int?      @map("reported_by")
+  approvedBy     Int?      @map("approved_by")
+  sanctionType   String    @map("sanction_type") @db.VarChar(30)
+  warningNumber  Int?      @map("warning_number")
+  bonusDelta     Decimal   @default(0) @map("bonus_delta") @db.Decimal(8, 2)
+  bookingBlocked Boolean   @default(false) @map("booking_blocked")
+  reason         String
+  status         String    @default("PENDING") @db.VarChar(20)
+  reportedAt     DateTime  @default(now()) @map("reported_at")
+  approvedAt     DateTime? @map("approved_at")
+  startsAt       DateTime? @map("starts_at")
+  endsAt         DateTime? @map("ends_at")
+  user           User      @relation("SanctionUser", fields: [userId], references: [id])
+  reporter       User?     @relation("SanctionReporter", fields: [reportedBy], references: [id])
+  approver       User?     @relation("SanctionApprover", fields: [approvedBy], references: [id])
+
+  @@index([userId, status])
+  @@index([approvedBy])
+  @@map("sanctions")
 }
 
-model CatalogItem {
-  id     String @id @default(cuid())
-  name   String
-  detail String @default("")
-  price  Int
+model NewsPost {
+  id        Int      @id @default(autoincrement())
+  authorId  Int      @map("author_id")
+  title     String   @db.VarChar(250)
+  content   String
+  imagePath String?  @map("image_path")
+  status    String   @default("PUBLISHED") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  author    User     @relation(fields: [authorId], references: [id])
+  comments  Comment[]
+  reactions Reaction[]
+
+  @@index([status, createdAt])
+  @@map("news_posts")
 }
 
-model PlayerStat {
-  id     String @id @default(cuid())
-  nick   String
-  points Int
-  games  Int
+model Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  userId    Int      @map("user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  post      NewsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt])
+  @@map("comments")
+}
+
+model Reaction {
+  id           Int      @id @default(autoincrement())
+  postId       Int      @map("post_id")
+  userId       Int      @map("user_id")
+  reactionType String   @default("LIKE") @map("reaction_type") @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+  post         NewsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("reactions")
+}
+
+model Notification {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @map("user_id")
+  notificationType String   @map("notification_type") @db.VarChar(50)
+  message          String
+  targetPath       String?  @map("target_path")
+  isRead           Boolean  @default(false) @map("is_read")
+  createdAt        DateTime @default(now()) @map("created_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model AppSetting {
+  id           Int      @id @default(autoincrement())
+  settingKey   String   @unique @map("setting_key") @db.VarChar(100)
+  settingValue Json     @map("setting_value")
+  description  String?
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
 }

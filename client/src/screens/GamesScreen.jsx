@@ -41,6 +41,7 @@ const STATUS_LABEL = {
   DRAFT: 'Черновик',
   PUBLISHED: 'Опубликован',
   DONE: 'Завершён',
+  CANCELLED: 'Отменён',
 }
 
 const KIND_LABEL = {
@@ -76,7 +77,8 @@ function toLocalInput(iso) {
 function GameModal({ game, onClose, onSave }) {
   const [title, setTitle] = useState(game?.title || '')
   const [startsAt, setStartsAt] = useState(game ? toLocalInput(game.startsAt) : '')
-  const [place, setPlace] = useState(game?.place || '')
+  const [description, setDescription] = useState(game?.description || game?.place || '')
+  const [deadline, setDeadline] = useState(game?.registrationDeadlineAt ? toLocalInput(game.registrationDeadlineAt) : '')
   const [seats, setSeats] = useState(game?.seats ?? '')
   const [kind, setKind] = useState(game?.kind || 'CLASSIC')
   const [price, setPrice] = useState(game?.price ?? 0)
@@ -87,7 +89,8 @@ function GameModal({ game, onClose, onSave }) {
     const ok = await onSave({
       title,
       startsAt,
-      place,
+      description,
+      registrationDeadlineAt: deadline || null,
       seats: Number(seats),
       kind,
       price: Number(price),
@@ -101,7 +104,9 @@ function GameModal({ game, onClose, onSave }) {
       <form className="stack" onSubmit={submit}>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="название" required />
         <input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required />
-        <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="место" required />
+        <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="описание" rows={3} />
+        <label htmlFor="night-deadline">Дедлайн записи</label>
+        <input id="night-deadline" type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} />
         <input type="number" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} placeholder="мест" required />
         <select value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="CLASSIC">Классика</option>
@@ -123,7 +128,7 @@ function GameModal({ game, onClose, onSave }) {
   )
 }
 
-export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onLogin }) {
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onLogin }) {
   const [kindFilter, setKindFilter] = useState('ALL')
   const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
@@ -136,6 +141,10 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [cancelError, setCancelError] = useState('')
   const [guestDraft, setGuestDraft] = useState('')
   const [editor, setEditor] = useState(null)
+  const [nightCancel, setNightCancel] = useState(null)
+  const [nightCanceling, setNightCanceling] = useState(false)
+  const [nightCancelError, setNightCancelError] = useState('')
+  const [nightCancelDone, setNightCancelDone] = useState(false)
   const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
@@ -206,6 +215,22 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
       setBookResult({ ok: true })
     } finally {
       setBooking(false)
+    }
+  }
+
+  async function confirmNightCancel() {
+    if (nightCanceling || !nightCancel) return
+    setNightCanceling(true)
+    setNightCancelError('')
+    try {
+      const result = await onCancelNight(nightCancel.id)
+      if (!result.ok) {
+        setNightCancelError(result.error || 'не вышло')
+        return
+      }
+      setNightCancelDone(true)
+    } finally {
+      setNightCanceling(false)
     }
   }
 
@@ -291,19 +316,31 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
             </div>
             <div>
               <h2 className="night-card__title">{game.title}</h2>
-              <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.place} · {game.taken ?? 0} из {game.seats}</p>
+              <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.taken ?? 0} из {game.seats}</p>
+              {/* описание вечера видно в расписании, не только в форме ведущего */}
+              {game.description ? <p>{game.description}</p> : null}
+              {game.imagePath ? <p className="muted">{game.imagePath}</p> : null}
             </div>
             <div className="night-card__side">
               {game.price > 0 && <span className="price">{game.price} BYN</span>}
               {staff && (
                 <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
               )}
+              {staff && game.status !== 'CANCELLED' && (
+                <button
+                  type="button"
+                  className="btn-ghost btn-s"
+                  onClick={() => { setNightCancelError(''); setNightCancelDone(false); setNightCancel(game) }}
+                >
+                  Отменить
+                </button>
+              )}
               {bookedIds.includes(game.id) ? (
                 <>
                   <button type="button" className="btn-primary btn-s" disabled>Вы записаны</button>
                   <button type="button" className="btn-ghost btn-s" onClick={() => { setCancelError(''); setCancelTarget(game) }}>Отменить</button>
                 </>
-              ) : !staff && (
+              ) : !staff && game.status !== 'CANCELLED' && (
                 <button
                   type="button"
                   className="btn-primary btn-s"
@@ -358,6 +395,27 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           onClose={() => { if (!canceling) setCancelTarget(null) }}
           onConfirm={confirmCancel}
         />
+      )}
+      {nightCancel && (
+        <Modal title={nightCancel.title} eyebrow="Отмена вечера" onClose={() => { if (!nightCanceling) setNightCancel(null) }}>
+          {nightCancelDone ? (
+            <>
+              <p>Вечер отменён. Запись закрыта.</p>
+              <div className="modal-actions">
+                <button type="button" className="btn-primary" onClick={() => setNightCancel(null)}>Ок</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>Отменить вечер? Запись закроется, записанные игроки получат уведомление.</p>
+              {nightCancelError ? <p className="error">{nightCancelError}</p> : null}
+              <div className="modal-actions">
+                <button type="button" className="btn-ghost" onClick={() => setNightCancel(null)} disabled={nightCanceling}>Нет</button>
+                <button type="button" className="btn-primary" onClick={confirmNightCancel} disabled={nightCanceling}>Отменить</button>
+              </div>
+            </>
+          )}
+        </Modal>
       )}
       {editor && (
         <GameModal

@@ -40,22 +40,8 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
         <p className="lede">Запись на вечера, рейтинг сезона и новости клуба — в одном месте.</p>
         <div className="hero-actions">
           <button type="button" className="btn-primary" onClick={onOpenSchedule}>Записаться</button>
-          <a className="btn btn-secondary" href="#upcoming">Подробнее</a>
+          <button type="button" className="btn-secondary" onClick={onOpenSchedule}>Подробнее</button>
         </div>
-      </div>
-      <div className="screen-block promo" id="promo">
-        <p className="eyebrow">Клуб CRIME</p>
-        <h2 className="page-title">Абонементы и сертификаты</h2>
-        <p>Абонементы на открытые игры вы также можете приобрести у нас и играть с еще большим удовольствием, ведь это хорошая экономия.</p>
-        <ul className="promo-list">
-          <li>Абонемент на 5 посещений — 160 BYN</li>
-          <li>Абонемент безлимит на 1 месяц — 300 BYN</li>
-          <li>Абонемент безлимит на 6 месяцев — 1500 BYN</li>
-          <li>Абонемент безлимит на 12 месяцев — 3000 BYN</li>
-          <li>Подарочный сертификат на 1 и 2 персоны — 35 BYN и 70 BYN, действителен в течение 1 месяца</li>
-          <li>Сертификат на закрытую игру, любая из 6 программ — от 400 BYN до 1400 BYN</li>
-          <li>Именные игровые маски под заказ — 80 BYN</li>
-        </ul>
       </div>
       <div className="screen-block" id="upcoming">
         <p className="eyebrow">Ближайшие вечера</p>
@@ -74,7 +60,8 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
                   </div>
                   <div>
                     <h3 className="night-card__title">{game.title}</h3>
-                    <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.place} · {game.taken ?? 0} из {game.seats}</p>
+                    <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.taken ?? 0} из {game.seats}</p>
+                    {game.description ? <p>{game.description}</p> : null}
                   </div>
                   <div className="night-card__side">
                     {game.price > 0 ? <span className="price">{game.price} BYN</span> : <span />}

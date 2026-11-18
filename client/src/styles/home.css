@@ -25,6 +25,3 @@
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
 
 .screen-block { padding: 12px 40px 72px; }
-
-.promo-list { margin: 0; padding-left: 18px; color: var(--muted); }
-.promo-list li { margin: 6px 0; }

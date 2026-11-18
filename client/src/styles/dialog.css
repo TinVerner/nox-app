@@ -10,11 +10,29 @@
 }
 
 .modal {
+  position: relative;
   width: min(480px, 100%);
   padding: 24px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
+}
+
+.modal--close h2 { padding-right: 36px; }
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid #3a3a3a;
+  background: transparent;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
 }
 
 .modal h2 { margin: 0 0 12px; font-size: 28px; }

@@ -45,6 +45,8 @@ export default function PlayersScreen({ onOpen }) {
                 value={row.rank || ''}
                 onChange={async (event) => {
                   const rank = event.target.value
+                  // пустой пункт снимает ранг, новый ранг приходит заявкой игрока
+                  if (rank) return
                   const res = await apiFetch('/api/members/' + row.id + '/rank', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -60,6 +62,7 @@ export default function PlayersScreen({ onOpen }) {
                   <option key={rank.id} value={rank.id}>{rank.label}</option>
                 ))}
               </select>
+              <p className="muted">пустой пункт снимает ранг</p>
               {row.rating ? (
                 <p>{row.rating.points} очков, игр {row.rating.games}</p>
               ) : (
