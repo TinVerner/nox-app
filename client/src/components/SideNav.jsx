@@ -32,7 +32,6 @@ const MENUS = {
     items: [
       { screen: 'overview', label: 'Обзор' },
       { screen: 'users', label: 'Пользователи' },
-      { screen: 'settings', label: 'Настройки' },
       { screen: 'sanctions', label: 'Санкции' },
       { screen: 'news', label: 'Новости' },
       { screen: 'about', label: 'О нас' },

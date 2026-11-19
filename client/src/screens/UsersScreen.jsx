@@ -73,6 +73,15 @@ export default function UsersScreen() {
     apply(updated)
   }
 
+  const needle = q.trim().toLocaleLowerCase('ru')
+  const visible = (users || []).filter((user) => {
+    if (role && user.role !== role) return false
+    if (!needle) return true
+    const nick = String(user.nick || '').toLocaleLowerCase('ru')
+    const email = String(user.email || '').toLocaleLowerCase('ru')
+    return nick.includes(needle) || email.includes(needle)
+  })
+
   return (
     <section className="screen">
       <p className="eyebrow">Управление клубом</p>
@@ -87,6 +96,12 @@ export default function UsersScreen() {
         </select>
       </div>
       <table className="user-table">
+        <colgroup>
+          <col className="col-nick" />
+          <col className="col-email" />
+          <col className="col-role" />
+          <col className="col-status" />
+        </colgroup>
         <thead>
           <tr>
             <th>Ник</th>
@@ -96,7 +111,7 @@ export default function UsersScreen() {
           </tr>
         </thead>
         <tbody>
-          {(users || []).map((user) => (
+          {visible.map((user) => (
             <tr key={user.id} onClick={() => { setError(''); setSelected(user) }}>
               <td>{user.nick}</td>
               <td className="muted">{user.email}</td>
@@ -106,22 +121,25 @@ export default function UsersScreen() {
           ))}
         </tbody>
       </table>
-      {users !== null && users.length === 0 && <p className="muted">пусто</p>}
+      {users !== null && visible.length === 0 && <p className="muted">пусто</p>}
       {selected && (
         <Modal title={selected.nick} eyebrow="Пользователь" onClose={() => { setError(''); setSelected(null) }}>
+          <div className="user-card">
           <p>Ник: {selected.nick}</p>
           <p>Email: {selected.email}</p>
           <p>Роль: {ROLE[selected.role] || selected.role}</p>
           <p className={selected.blocked ? 'status-wait' : 'status-ok'}>
             {selected.blocked ? 'заблокирован' : 'активен'}
           </p>
-          <label htmlFor="user-rank">Ранг</label>
-          <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(selected.id, event.target.value)}>
-            <option value="">без ранга</option>
-            {RANKS.map((rank) => (
-              <option key={rank.id} value={rank.id}>{rank.label}</option>
-            ))}
-          </select>
+          <div className="user-rank">
+            <label htmlFor="user-rank">Ранг</label>
+            <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(selected.id, event.target.value)}>
+              <option value="">без ранга</option>
+              {RANKS.map((rank) => (
+                <option key={rank.id} value={rank.id}>{rank.label}</option>
+              ))}
+            </select>
+          </div>
           {error && <p className="error">{error}</p>}
           <div className="user-actions">
             <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'PLAYER')}>PLAYER</button>
@@ -130,6 +148,7 @@ export default function UsersScreen() {
             <button type="button" className="btn-danger btn-s" onClick={() => setBlocked(selected.id, !selected.blocked)}>
               {selected.blocked ? 'Разблокировать' : 'Заблокировать'}
             </button>
+          </div>
           </div>
           <div className="modal-actions">
             <button type="button" className="btn-ghost" onClick={() => { setError(''); setSelected(null) }}>Закрыть</button>

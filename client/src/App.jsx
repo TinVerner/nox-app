@@ -19,7 +19,6 @@ import ProfileScreen from './screens/ProfileScreen'
 import ResultsScreen from './screens/ResultsScreen'
 import SeasonsScreen from './screens/SeasonsScreen'
 import OverviewScreen from './screens/OverviewScreen'
-import SettingsScreen from './screens/SettingsScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
 import SanctionsScreen from './screens/SanctionsScreen'
 import RulesScreen from './screens/RulesScreen'
@@ -31,7 +30,7 @@ import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
-  'bookings', 'profile', 'results', 'seasons', 'overview', 'settings', 'login', 'register',
+  'bookings', 'profile', 'results', 'seasons', 'overview', 'login', 'register',
   'sanctions', 'rules', 'points', 'notices', 'ranks', 'about',
 ])
 
@@ -329,7 +328,6 @@ function App() {
         {screen === 'results' && <ResultsScreen />}
         {screen === 'seasons' && <SeasonsScreen />}
         {screen === 'overview' && <OverviewScreen setScreen={go} />}
-        {screen === 'settings' && <SettingsScreen />}
         {screen === 'sanctions' && <SanctionsScreen />}
         {screen === 'rules' && <RulesScreen />}
         {screen === 'points' && <PointRulesScreen />}

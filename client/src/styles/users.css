@@ -1,4 +1,14 @@
-.user-table { width: 100%; border-collapse: collapse; }
+.user-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.user-table col.col-nick { width: 22%; }
+.user-table col.col-email { width: 42%; }
+.user-table col.col-role { width: 18%; }
+.user-table col.col-status { width: 18%; }
+.user-table th,
+.user-table td { overflow-wrap: anywhere; }
 .user-table th {
   padding: 10px 8px;
   text-align: left;
@@ -18,4 +28,29 @@
 .user-table tbody tr { cursor: pointer; }
 
 .user-table tbody tr:hover { color: var(--accent); }
-.user-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.user-card p { margin: 0; }
+
+.user-rank {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.rank-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.rank-card h2,
+.rank-card p { margin: 0; }

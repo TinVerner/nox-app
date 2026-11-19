@@ -64,7 +64,7 @@ export default function RanksScreen({ me }) {
       ) : (
         <div className="stack">
           {rows.map((row) => (
-            <article key={row.id} className="panel">
+            <article key={row.id} className="panel rank-card">
               <h2>{row.nick}</h2>
               <p>{row.label} · {row.status === 'PENDING' ? 'на рассмотрении' : row.status === 'CONFIRMED' ? 'подтверждён' : 'отклонён'}</p>
               {staff && row.status === 'PENDING' && (

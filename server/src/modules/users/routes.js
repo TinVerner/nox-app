@@ -10,7 +10,17 @@ const router = Router()
 router.get('/users', async (req, res) => {
   const me = await meOrNull(req)
   if (!me || me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
-  const users = await prisma.user.findMany({ orderBy: { displayName: 'asc' } })
+  const where = {}
+  const role = req.query.role
+  if (role === 'PLAYER' || role === 'HOST' || role === 'ADMIN') where.role = role
+  const q = String(req.query.q || '').trim()
+  if (q) {
+    where.OR = [
+      { displayName: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+    ]
+  }
+  const users = await prisma.user.findMany({ where, orderBy: { displayName: 'asc' } })
   const codes = await rankCodes(users.map((user) => user.id))
   res.json(users.map((user) => userJson(user, codes.get(user.id))))
 })
