@@ -18,6 +18,8 @@
 @import './styles/login.css';
 @import './styles/register.css';
 @import './styles/not-found.css';
+@import './styles/about.css';
+@import './styles/catalog.css';
 
 :root {
   --bg: #111;
@@ -107,6 +109,8 @@ p { margin: 0 0 8px; }
 }
 
 .stack { display: flex; flex-direction: column; gap: 12px; }
+
+.form-follow { margin-top: 32px; }
 
 .form-row, .toolbar {
   display: flex;

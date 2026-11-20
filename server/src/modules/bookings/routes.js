@@ -2,12 +2,13 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { meOrNull } from '../auth/session.js'
-import { clubSettings } from '../settings/club.js'
 import { approvedBookingBlock } from '../sanctions/policy.js'
 import { takenCounts } from '../game-nights/night.js'
 import { scoreOf } from '../results/score.js'
 import { guestNames, personKey } from './people.js'
 import { notifyHost } from './notify-host.js'
+
+const WAITLIST_SIZE = 4
 
 const router = Router()
 
@@ -26,14 +27,12 @@ router.post('/games/:id/book', async (req, res) => {
   }
   const blocked = await approvedBookingBlock(me.id)
   if (blocked) return res.status(403).json({ error: 'запись закрыта' })
-  const settings = await clubSettings()
-  if (!settings.bookingOpen) return res.status(403).json({ error: 'запись закрыта' })
   const names = guestNames(req.body?.guests)
   const takenNow = (await takenCounts([night.id])).get(night.id) || 0
   const waiting = await prisma.booking.count({ where: { gameNightId: night.id, status: 'WAITING' } })
   let status = 'CONFIRMED'
   if (takenNow >= night.capacity) {
-    if (waiting >= settings.waitlistSize) return res.status(409).json({ error: 'лист ожидания полон' })
+    if (waiting >= WAITLIST_SIZE) return res.status(409).json({ error: 'лист ожидания полон' })
     status = 'WAITING'
   }
   const existing = await prisma.booking.findUnique({

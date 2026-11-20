@@ -16,3 +16,7 @@
 }
 .comment p { margin: 0; }
 .comment-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.comment-login {
+  color: var(--accent);
+  text-decoration: underline;
+}

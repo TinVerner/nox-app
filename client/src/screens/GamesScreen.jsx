@@ -53,13 +53,52 @@ const KIND_LABEL = {
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 const DAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 
-function nightParts(iso) {
+const WEEKDAY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+
+function minskFields(iso) {
   const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return { label: '', time: '' }
-  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Minsk',
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const value = (type) => parts.find((part) => part.type === type).value
+  return value
+}
+
+function nightParts(iso, endsAt) {
+  const value = minskFields(iso)
+  if (!value) return { label: '', time: '' }
+  const end = endsAt ? minskFields(endsAt) : null
+  const startClock = `${value('hour')}:${value('minute')}`
+  const time = end ? `${startClock}–${end('hour')}:${end('minute')}` : startClock
   return {
-    label: `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`,
+    label: `${DAYS[WEEKDAY[value('weekday')]]} ${Number(value('day'))} ${MONTHS[Number(value('month')) - 1]}`,
     time,
+  }
+}
+
+function toMinskInput(iso) {
+  const value = minskFields(iso)
+  if (!value) return ''
+  return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}`
+}
+
+function liveMark(game, now = Date.now()) {
+  if (game.status === 'CANCELLED') return { text: 'Отменён', className: 'status-muted' }
+  const start = new Date(game.startsAt).getTime()
+  const end = game.endsAt ? new Date(game.endsAt).getTime() : null
+  if (end != null && now >= end) return { text: 'игра завершена', className: 'status-muted' }
+  if (end != null && now >= start && now < end) return { text: 'игра идёт', className: 'status-wait' }
+  return {
+    text: STATUS_LABEL[game.status] || game.status,
+    className: game.status === 'PUBLISHED' ? 'status-ok' : 'status-muted',
   }
 }
 
@@ -68,15 +107,13 @@ function bookLabel(game) {
 }
 
 function toLocalInput(iso) {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  const pad = (value) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return toMinskInput(iso)
 }
 
 function GameModal({ game, onClose, onSave }) {
   const [title, setTitle] = useState(game?.title || '')
   const [startsAt, setStartsAt] = useState(game ? toLocalInput(game.startsAt) : '')
+  const [endsAt, setEndsAt] = useState(game?.endsAt ? toLocalInput(game.endsAt) : '')
   const [description, setDescription] = useState(game?.description || game?.place || '')
   const [deadline, setDeadline] = useState(game?.registrationDeadlineAt ? toLocalInput(game.registrationDeadlineAt) : '')
   const [seats, setSeats] = useState(game?.seats ?? '')
@@ -89,6 +126,7 @@ function GameModal({ game, onClose, onSave }) {
     const ok = await onSave({
       title,
       startsAt,
+      endsAt,
       description,
       registrationDeadlineAt: deadline || null,
       seats: Number(seats),
@@ -103,7 +141,10 @@ function GameModal({ game, onClose, onSave }) {
     <Modal title={game ? 'Изменить вечер' : 'Новый вечер'} eyebrow="Вечера" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="название" required />
-        <input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required />
+        <label htmlFor="night-start">Начало</label>
+        <input id="night-start" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required />
+        <label htmlFor="night-end">Конец</label>
+        <input id="night-end" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} required />
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="описание" rows={3} />
         <label htmlFor="night-deadline">Дедлайн записи</label>
         <input id="night-deadline" type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} />
@@ -261,6 +302,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
 
   const week = minskWeek()
   const visible = games.filter((game) => {
+    if (me?.role === 'PLAYER' && new Date(game.startsAt).getTime() <= Date.now()) return false
     if (kindFilter !== 'ALL' && game.kind !== kindFilter) return false
     if (weekFilter === 'WEEK' && !inMinskWeek(game.startsAt, week)) return false
     return true
@@ -307,7 +349,8 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
       )}
       <div className="night-list" key={reloadKey}>
       {visible.map((game) => {
-        const when = nightParts(game.startsAt)
+        const when = nightParts(game.startsAt, game.endsAt)
+        const mark = staff ? liveMark(game) : null
         return (
           <article key={game.id} className="night-card">
             <div className="night-card__when">
@@ -352,7 +395,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
             </div>
             {staff && (
               <div className="night-card__tools">
-                <span className={game.status === 'PUBLISHED' ? 'status-ok' : 'status-muted'}>{STATUS_LABEL[game.status] || game.status}</span>
+                <span className={mark.className}>{mark.text}</span>
               </div>
             )}
           </article>

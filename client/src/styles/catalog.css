@@ -1,0 +1,12 @@
+.catalog-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.catalog-card h2,
+.catalog-card p { margin: 0; }
+
+.catalog-card input,
+.catalog-card textarea { width: 100%; }

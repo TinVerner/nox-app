@@ -30,14 +30,16 @@ export default function HomeScreen({ onOpenSchedule, reloadKey = 0 }) {
       .catch(() => setGames([]))
   }, [reloadKey])
 
-  const next = (games || []).filter((game) => new Date(game.startsAt).getTime() >= Date.now())
+  const next = (games || [])
+    .filter((game) => new Date(game.startsAt).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
+    .slice(0, 5)
 
   return (
     <section className="screen screen--home">
       <div className="hero">
         <h1 className="hero-title">NOX</h1>
         <p className="hero-lead">Клуб спортивной мафии. Вечера за одним столом.</p>
-        <p className="lede">Запись на вечера, рейтинг сезона и новости клуба — в одном месте.</p>
         <div className="hero-actions">
           <button type="button" className="btn-primary" onClick={onOpenSchedule}>Записаться</button>
           <button type="button" className="btn-secondary" onClick={onOpenSchedule}>Подробнее</button>

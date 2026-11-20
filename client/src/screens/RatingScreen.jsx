@@ -3,8 +3,9 @@ import { useState } from 'react'
 export default function RatingScreen({ rating }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState('TOP')
-  const top = rating.slice(0, 3)
-  const table = view === 'TOP' ? rating.slice(3) : rating
+  const listed = rating.filter((row) => Number(row.points) !== 0)
+  const top = listed.slice(0, 3)
+  const table = view === 'TOP' ? listed.slice(3) : listed
 
   return (
     <section className="screen">
@@ -19,11 +20,11 @@ export default function RatingScreen({ rating }) {
       </div>
       {open && (
         <div className="panel stack explain">
-          <p>Очки игрока — сумма очков, которые ведущий внёс в результатах вечеров. Число игр — сколько таких результатов есть у ника. В таблице каждый игрок; если результатов нет, очки и игры равны нулю.</p>
+          <p>Очки игрока — сумма очков, которые ведущий внёс в результатах вечеров. Число игр — сколько таких результатов есть у ника. Игроки с нулём очков в таблицу не попадают.</p>
           <button type="button" className="btn-secondary btn-s" onClick={() => setOpen(false)}>Закрыть</button>
         </div>
       )}
-      {rating.length === 0 ? (
+      {listed.length === 0 ? (
         <p className="muted">пусто</p>
       ) : (
         <>

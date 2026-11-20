@@ -11,6 +11,7 @@
   display: flex;
   flex-direction: row;
   align-items: flex-start;
+  min-height: 100vh;
 }
 
 .app-main {
@@ -32,7 +33,12 @@
   font-size: 14px;
 }
 
-.app-shell--side .app-main > .site-foot { padding: 18px 0 0; }
+.app-shell--side .app-main > .screen { flex: 0 0 auto; }
+
+.app-shell--side .app-main > .site-foot {
+  margin-top: auto;
+  padding: 40px 0 0;
+}
 
 .notice {
   margin: 0 0 16px;
@@ -49,7 +55,10 @@
 .app-shell--guest .screen--home,
 .app-shell--guest .screen.not-found { padding: 0; }
 
-.app-shell--side .app-main { padding: 28px 36px 64px; }
+.app-shell--side .app-main {
+  min-height: 100vh;
+  padding: 28px 36px 32px;
+}
 
 .top-nav {
   display: grid;
@@ -100,10 +109,12 @@ button.brand:hover { filter: none; color: #e4c97a; }
   width: 232px;
   flex: 0 0 232px;
   align-self: flex-start;
-  height: auto;
-  min-height: 0;
+  height: 100vh;
+  min-height: 100vh;
+  max-height: 100vh;
   position: sticky;
   top: 0;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -175,5 +186,12 @@ button.nav-link[aria-current='page'] {
 @media (max-width: 900px) {
   .top-nav { grid-template-columns: 1fr; display: flex; flex-wrap: wrap; }
   .app-shell--side { flex-direction: column; }
-  .side-nav { width: 100%; flex-basis: auto; min-height: 0; }
+  .side-nav {
+    width: 100%;
+    flex-basis: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    position: static;
+  }
 }

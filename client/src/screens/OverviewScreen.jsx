@@ -1,6 +1,6 @@
 export default function OverviewScreen({ setScreen }) {
   return (
-    <section className="screen">
+    <section className="screen screen--overview">
       <p className="eyebrow">Управление клубом</p>
       <h1>Обзор</h1>
       <div className="link-grid">

@@ -1,19 +1,32 @@
+.screen--overview {
+  flex: 0 0 auto;
+}
+
 .link-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 24px;
 }
 
 .panel-link, button.panel-link {
-  display: flex;
-  align-items: flex-end;
-  min-height: 140px;
-  padding: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 16px 22px;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
   font-family: var(--heading);
   font-size: 22px;
+  line-height: 1.2;
   text-align: left;
 }

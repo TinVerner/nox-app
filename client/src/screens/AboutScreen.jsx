@@ -1,22 +1,42 @@
-export default function AboutScreen() {
+const CONTACTS = [
+  { label: 'Адрес', value: 'г. Минск, ул. Леонида Беды, 11' },
+  { label: 'Телефон', value: '+375 33 471 23 67' },
+  { label: 'Telegram', value: '@Nox_Club_Mafia' },
+  { label: 'Instagram', value: 'NOX_Club_Mafia' },
+]
+
+export default function AboutScreen({ onSchedule, onBack }) {
   return (
-    <section className="screen">
-      <p className="eyebrow">Клуб</p>
-      <h1>О нас</h1>
-      <p className="lede">Клуб спортивной мафии. Вечера за одним столом. Посмотрите, как работает клуб.</p>
-      <div className="stack">
-        <article className="panel stack">
-          <h2>У нас</h2>
-          <p>Для нас важно не только то, кто оказался победителем, а то, что за игровым столом собираются люди, которым приятно проводить время вместе.</p>
-          <p>Здесь можно ошибаться, учиться, удивлять, спорить, смеяться, возвращаться после перерыва и каждый раз открывать игру с новой стороны.</p>
-          <p>Мафия — это не только победы и поражения, но и люди, эмоции, новые знакомства и удовольствие от игры.</p>
-        </article>
-        <article className="panel stack">
-          <h2>За столом</h2>
-          <p>Мы будем рады снова увидеть вас за игровым столом. И тех, кто играет с нами давно, и тех, кто только начинает свой путь в мафии.</p>
-          <p>Не прощаемся — до следующей игры.</p>
-        </article>
-      </div>
+    <section className="screen screen--about">
+      <p className="eyebrow">О нас</p>
+      <h1>О клубе NOX</h1>
+      <p className="lede">Клуб спортивной «Мафии» в Минске.</p>
+      <article className="about-hero">
+        <div className="about-hero__copy">
+          <h2>Игровые вечера в Минске</h2>
+          <p>Открытые столы, обучающие вечера и турниры. Формат, время и стоимость участия указаны в расписании.</p>
+          <div className="about-hero__actions">
+            <button type="button" className="btn-primary" onClick={onSchedule}>Вечера клуба</button>
+            <button type="button" className="btn-secondary" onClick={onBack}>Вернуться назад</button>
+          </div>
+        </div>
+        <aside className="about-mark">
+          <p className="about-mark__brand">NOX</p>
+          <p className="about-mark__meta">Минск · Mafia Club</p>
+          <p className="about-mark__line">Клуб спортивной мафии</p>
+        </aside>
+      </article>
+      <section className="about-block">
+        <h2>Контакты</h2>
+        <dl className="about-contacts">
+          {CONTACTS.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </section>
   )
 }

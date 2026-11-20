@@ -33,7 +33,7 @@ function NewsModal({ onClose, onSave }) {
   )
 }
 
-function CommentsModal({ item, me, onClose }) {
+function CommentsModal({ item, me, onClose, onLogin }) {
   const [rows, setRows] = useState(null)
   const [text, setText] = useState('')
   const [error, setError] = useState('')
@@ -111,13 +111,15 @@ function CommentsModal({ item, me, onClose }) {
           </div>
         </form>
       ) : (
-        <p className="muted">Чтобы написать, войди</p>
+        <p className="muted">
+          Чтобы написать, <a className="comment-login" href="/login" onClick={(event) => { event.preventDefault(); onLogin() }}>войдите</a>
+        </p>
       )}
     </Modal>
   )
 }
 
-export default function NewsScreen({ me, news, onCreate }) {
+export default function NewsScreen({ me, news, onCreate, onLogin }) {
   const [editor, setEditor] = useState(false)
   const [likes, setLikes] = useState({})
   const [openId, setOpenId] = useState(null)
@@ -166,7 +168,7 @@ export default function NewsScreen({ me, news, onCreate }) {
           </article>
         )
       })}
-      {open && <CommentsModal item={open} me={me} onClose={() => setOpenId(null)} />}
+      {open && <CommentsModal item={open} me={me} onClose={() => setOpenId(null)} onLogin={onLogin} />}
       {editor && (
         <NewsModal onClose={() => setEditor(false)} onSave={onCreate} />
       )}

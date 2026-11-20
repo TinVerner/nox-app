@@ -26,12 +26,14 @@ import PointRulesScreen from './screens/PointRulesScreen'
 import NoticesScreen from './screens/NoticesScreen'
 import RanksScreen from './screens/RanksScreen'
 import AboutScreen from './screens/AboutScreen'
+import CatalogScreen from './screens/CatalogScreen'
+import EventsScreen from './screens/EventsScreen'
 import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
   'bookings', 'profile', 'results', 'seasons', 'overview', 'login', 'register',
-  'sanctions', 'rules', 'points', 'notices', 'ranks', 'about',
+  'sanctions', 'rules', 'points', 'notices', 'ranks', 'about', 'catalog', 'events',
 ])
 
 function shellFor(user) {
@@ -312,7 +314,7 @@ function App() {
           />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
-        {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} />}
+        {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} onLogin={() => go('login')} />}
         {screen === 'users' && <UsersScreen />}
         {screen === 'members' && (shell === 'host' || shell === 'admin') && (
           <MembersScreen onOpen={(id) => { setMemberId(id); setMemberBack('members'); go('member') }} />
@@ -333,7 +335,11 @@ function App() {
         {screen === 'points' && <PointRulesScreen />}
         {screen === 'notices' && <NoticesScreen />}
         {screen === 'ranks' && <RanksScreen me={me} />}
-        {screen === 'about' && <AboutScreen />}
+        {screen === 'about' && (
+          <AboutScreen onSchedule={() => go('games')} onBack={() => go(previousScreen.current)} />
+        )}
+        {screen === 'catalog' && <CatalogScreen me={me} />}
+        {screen === 'events' && <EventsScreen me={me} />}
         {screen === 'login' && (
           <LoginScreen
             email={email}

@@ -14,6 +14,7 @@ export default function UsersScreen() {
   const [q, setQ] = useState('')
   const [role, setRole] = useState('')
   const [selected, setSelected] = useState(null)
+  const [bonus, setBonus] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -59,6 +60,25 @@ export default function UsersScreen() {
     setError('')
     setUsers((list) => (list || []).map((user) => (user.id === id ? { ...user, rank: updated.rank } : user)))
     setSelected((current) => (current && current.id === id ? { ...current, rank: updated.rank } : current))
+  }
+
+  function openUser(user) {
+    setError('')
+    setBonus(String(user.bonus ?? 0))
+    setSelected(user)
+  }
+
+  async function saveBonus(id) {
+    const res = await apiFetch('/api/users/' + id + '/bonus', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bonus: Number(bonus) }),
+    })
+    const updated = await res.json()
+    if (!res.ok) return setError(updated.error || 'не вышло')
+    setError('')
+    apply(updated)
+    setBonus(String(updated.bonus ?? 0))
   }
 
   async function setBlocked(id, blocked) {
@@ -112,7 +132,7 @@ export default function UsersScreen() {
         </thead>
         <tbody>
           {visible.map((user) => (
-            <tr key={user.id} onClick={() => { setError(''); setSelected(user) }}>
+            <tr key={user.id} onClick={() => openUser(user)}>
               <td>{user.nick}</td>
               <td className="muted">{user.email}</td>
               <td>{ROLE[user.role] || user.role}</td>
@@ -131,6 +151,11 @@ export default function UsersScreen() {
           <p className={selected.blocked ? 'status-wait' : 'status-ok'}>
             {selected.blocked ? 'заблокирован' : 'активен'}
           </p>
+          <div className="user-rank">
+            <label htmlFor="user-bonus">Бонусы</label>
+            <input id="user-bonus" type="number" step="0.01" value={bonus} onChange={(event) => setBonus(event.target.value)} />
+            <button type="button" className="btn-secondary btn-s" onClick={() => saveBonus(selected.id)}>Сохранить баланс</button>
+          </div>
           <div className="user-rank">
             <label htmlFor="user-rank">Ранг</label>
             <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(selected.id, event.target.value)}>

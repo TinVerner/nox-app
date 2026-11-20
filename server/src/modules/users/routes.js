@@ -38,6 +38,19 @@ router.patch('/users/:id/role', async (req, res) => {
   res.json(userJson(updated, codes.get(id)))
 })
 
+router.patch('/users/:id/bonus', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me || me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
+  const id = idParam(req.params.id)
+  const user = id ? await prisma.user.findUnique({ where: { id } }) : null
+  if (!user) return res.status(404).json({ error: 'не найдено' })
+  const bonus = Number(req.body.bonus)
+  if (!Number.isFinite(bonus)) return res.status(400).json({ error: 'нужен баланс' })
+  const updated = await prisma.user.update({ where: { id }, data: { bonusBalance: bonus } })
+  const codes = await rankCodes([id])
+  res.json(userJson(updated, codes.get(id)))
+})
+
 router.patch('/users/:id/block', async (req, res) => {
   const me = await meOrNull(req)
   if (!me || me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })

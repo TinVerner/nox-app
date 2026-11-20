@@ -69,9 +69,9 @@ export default function SanctionsScreen() {
         <button type="submit" className="btn-primary">Записать</button>
       </form>
       {rows === null ? null : rows.length === 0 ? (
-        <p className="muted">пусто</p>
+        <p className="muted form-follow">пусто</p>
       ) : (
-        <div className="stack">
+        <div className="stack form-follow">
           {rows.map((row) => (
             <article key={row.id} className="panel">
               <h2>{row.nick}</h2>
