@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam, num } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
+import { CATALOG_DEFAULTS } from './defaults.js'
 
 const router = Router()
 
@@ -23,11 +24,28 @@ function itemJson(item) {
   }
 }
 
+async function ensureCatalogDefaults() {
+  for (const item of CATALOG_DEFAULTS) {
+    const existing = await prisma.catalogItem.findFirst({ where: { name: item.name } })
+    if (existing) continue
+    await prisma.catalogItem.create({
+      data: {
+        name: item.name,
+        description: item.description,
+        cashPrice: item.cashPrice,
+        bonusPrice: null,
+        isActive: true,
+      },
+    })
+  }
+}
+
 router.get('/catalog', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'сначала войди' })
+  await ensureCatalogDefaults()
   const where = isHost(me) ? {} : { isActive: true }
-  const items = await prisma.catalogItem.findMany({ where, orderBy: { name: 'asc' } })
+  const items = await prisma.catalogItem.findMany({ where, orderBy: [{ cashPrice: 'asc' }, { name: 'asc' }] })
   res.json(items.map(itemJson))
 })
 
@@ -93,27 +111,8 @@ router.delete('/catalog/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
-router.post('/catalog/:id/buy', async (req, res) => {
-  const me = await meOrNull(req)
-  if (!me) return res.status(401).json({ error: 'сначала войди' })
-  if (me.role !== 'PLAYER') return res.status(403).json({ error: 'покупка только для игроков' })
-  if (me.status === 'BLOCKED') return res.status(403).json({ error: 'аккаунт заблокирован' })
-  const id = idParam(req.params.id)
-  const item = id ? await prisma.catalogItem.findUnique({ where: { id } }) : null
-  if (!item || !item.isActive) return res.status(404).json({ error: 'услуга не найдена' })
-  if (item.bonusPrice == null) return res.status(400).json({ error: 'нет цены в бонусах' })
-  const price = num(item.bonusPrice)
-  const outcome = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: me.id } })
-    if (num(user.bonusBalance) < price) return { error: 'не хватает бонусов', status: 409 }
-    const updated = await tx.user.update({
-      where: { id: me.id },
-      data: { bonusBalance: { decrement: price } },
-    })
-    return { bonus: num(updated.bonusBalance) }
-  })
-  if (outcome.error) return res.status(outcome.status).json({ error: outcome.error })
-  res.json({ item: itemJson(item), bonus: outcome.bonus })
+router.post('/catalog/:id/buy', async (_req, res) => {
+  res.status(400).json({ error: 'заказ через сайт недоступен — свяжитесь с ведущим' })
 })
 
 export default router

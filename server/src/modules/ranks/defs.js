@@ -6,11 +6,20 @@ export const RANK_LABEL = {
   LEGEND: 'Легенда',
 }
 
+export const RANK_ORDER = ['MASTER', 'MASTER_PRO', 'LEGEND']
+
 export const RANK_DEFS = [
   { code: 'MASTER', name: 'Мастер ★', criteria: { games: 90 }, benefits: 'Скидка 5 BYN на открытую игру' },
   { code: 'MASTER_PRO', name: 'Мастер Про ★★', criteria: { winrate: 75, games: 50 }, benefits: 'Скидка 10 BYN на открытую игру и 20% на вечеринки' },
   { code: 'LEGEND', name: 'Легенда', criteria: { winrate: 85, games: 50 }, benefits: 'Скидка 15 BYN на открытую игру и 50% на вечеринки' },
 ]
+
+export function nextRankCode(current) {
+  if (!current) return RANK_ORDER[0]
+  const index = RANK_ORDER.indexOf(current)
+  if (index < 0 || index >= RANK_ORDER.length - 1) return null
+  return RANK_ORDER[index + 1]
+}
 
 export async function ensureRanks() {
   for (const rank of RANK_DEFS) {

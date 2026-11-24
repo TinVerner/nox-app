@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '../api'
-import { RANKS } from '../ranks'
+import { nextRank, rankLabel } from '../ranks'
 
-// Заявки user_ranks: игрок подаёт PENDING, ведущий и админ подтверждают или отклоняют.
+// Заявки user_ranks: игрок подаёт PENDING, ведущий подтверждает или отклоняет.
 export default function RanksScreen({ me }) {
   const staff = me?.role === 'HOST'
   const [rows, setRows] = useState(null)
-  const [rank, setRank] = useState('MASTER')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const playerPending = useMemo(
+    () => (rows || []).some((row) => row.status === 'PENDING'),
+    [rows],
+  )
+  const target = nextRank(me?.rank || null)
+  const showForm = me?.role === 'PLAYER' && target && !playerPending
 
   function load() {
     apiFetch('/api/rank-requests')
@@ -20,18 +27,24 @@ export default function RanksScreen({ me }) {
 
   async function submit(event) {
     event.preventDefault()
+    if (!target || busy) return
     setError('')
-    const response = await apiFetch('/api/rank-requests', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rank }),
-    })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      setError(data.error || 'не вышло')
-      return
+    setBusy(true)
+    try {
+      const response = await apiFetch('/api/rank-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rank: target.id }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setError(data.error || 'не вышло')
+        return
+      }
+      load()
+    } finally {
+      setBusy(false)
     }
-    load()
   }
 
   async function decide(id, status) {
@@ -46,23 +59,35 @@ export default function RanksScreen({ me }) {
 
   return (
     <section className="screen">
-      <p className="eyebrow">Ранг</p>
-      <h1>Заявки на ранг</h1>
-      {me?.role === 'PLAYER' && (
-        <form className="stack panel" onSubmit={submit}>
-          <select value={rank} onChange={(event) => setRank(event.target.value)}>
-            {RANKS.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Ранг</p>
+          <h1>Заявки на ранг</h1>
+          {me?.role === 'PLAYER' ? (
+            <p className="lede">
+              Текущий: {me.rank ? rankLabel(me.rank) : 'без ранга'}
+              {target ? ` · следующий: ${target.label}` : ' · максимальный ранг'}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {me?.role === 'PLAYER' && playerPending ? (
+        <p className="muted">Заявка на рассмотрении — новую подать нельзя, пока ведущий не решит.</p>
+      ) : null}
+      {showForm && (
+        <form className="stack panel ranks-form" onSubmit={submit}>
+          <p className="muted">Подать заявку на {target.label}</p>
           {error ? <p className="error">{error}</p> : null}
-          <button type="submit">Подать заявку</button>
+          <button type="submit" className="btn-primary" disabled={busy}>Подать заявку</button>
         </form>
       )}
+      {me?.role === 'PLAYER' && !target && !playerPending ? (
+        <p className="muted">Вы уже на максимальном ранге.</p>
+      ) : null}
       {rows === null ? null : rows.length === 0 ? (
         <p className="muted">пусто</p>
       ) : (
-        <div className="stack">
+        <div className="stack ranks-list">
           {rows.map((row) => (
             <article key={row.id} className="panel rank-card">
               <h2>{row.nick}</h2>

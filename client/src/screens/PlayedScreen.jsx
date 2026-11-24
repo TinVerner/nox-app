@@ -66,14 +66,18 @@ function rankedTotals(list) {
     .map((row, index) => ({ ...row, place: index + 1 }))
 }
 
-export default function PlayedScreen() {
+export default function PlayedScreen({ focusId = null }) {
   const [rows, setRows] = useState(null)
-  const [openId, setOpenId] = useState(null)
+  const [openId, setOpenId] = useState(focusId || null)
   const [detail, setDetail] = useState(null)
   const [partiesOpen, setPartiesOpen] = useState(false)
   const [error, setError] = useState('')
   const [detailError, setDetailError] = useState('')
   const [detailBusy, setDetailBusy] = useState(false)
+
+  useEffect(() => {
+    if (focusId) setOpenId(focusId)
+  }, [focusId])
 
   useEffect(() => {
     let cancelled = false

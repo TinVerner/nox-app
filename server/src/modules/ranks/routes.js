@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
-import { RANK_LABEL, ensureRanks } from './defs.js'
+import { RANK_LABEL, ensureRanks, nextRankCode, rankCodes } from './defs.js'
 
 const router = Router()
 
@@ -46,11 +46,15 @@ router.post('/rank-requests', async (req, res) => {
   await ensureRanks()
   const code = req.body.rank
   if (!RANK_LABEL[code]) return res.status(400).json({ error: 'неизвестный ранг' })
-  const definition = await prisma.rankDefinition.findUnique({ where: { code } })
   const pending = await prisma.userRank.findFirst({
-    where: { userId: me.id, rankId: definition.id, status: 'PENDING' },
+    where: { userId: me.id, status: 'PENDING' },
   })
-  if (pending) return res.status(409).json({ error: 'заявка уже есть' })
+  if (pending) return res.status(409).json({ error: 'заявка уже на рассмотрении' })
+  const codes = await rankCodes([me.id])
+  const allowed = nextRankCode(codes.get(me.id) || null)
+  if (!allowed) return res.status(400).json({ error: 'максимальный ранг уже получен' })
+  if (code !== allowed) return res.status(400).json({ error: 'можно подать только на следующий ранг' })
+  const definition = await prisma.rankDefinition.findUnique({ where: { code } })
   const row = await prisma.userRank.create({
     data: { userId: me.id, rankId: definition.id, status: 'PENDING' },
   })

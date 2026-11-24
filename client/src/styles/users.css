@@ -45,11 +45,18 @@
 
 .user-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
+.ranks-form,
+.ranks-list {
+  margin-top: 8px;
+  max-width: 520px;
+}
+
 .rank-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 8px;
+  text-align: left;
 }
 
 .rank-card h2,

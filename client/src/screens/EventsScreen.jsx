@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
+import CancelBookingDialog from '../components/CancelBookingDialog'
 import Modal from '../components/Modal'
 
 const TYPE = {
@@ -108,6 +109,9 @@ export default function EventsScreen({ me }) {
   const [rows, setRows] = useState(null)
   const [editor, setEditor] = useState(null)
   const [error, setError] = useState('')
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [canceling, setCanceling] = useState(false)
+  const [cancelError, setCancelError] = useState('')
 
   function load() {
     apiFetch('/api/events')
@@ -156,14 +160,27 @@ export default function EventsScreen({ me }) {
     load()
   }
 
-  async function cancel(item) {
-    setError('')
-    const response = await apiFetch('/api/events/' + item.id + '/register', { method: 'DELETE' })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      return setError(data.error || 'не вышло')
+  function askCancel(item) {
+    setCancelError('')
+    setCancelTarget(item)
+  }
+
+  async function confirmCancel() {
+    if (canceling || !cancelTarget) return
+    setCanceling(true)
+    setCancelError('')
+    try {
+      const response = await apiFetch('/api/events/' + cancelTarget.id + '/register', { method: 'DELETE' })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setCancelError(data.error || 'не вышло')
+        return
+      }
+      setCancelTarget(null)
+      load()
+    } finally {
+      setCanceling(false)
     }
-    load()
   }
 
   async function setPlace(item, registration, finalPlace) {
@@ -204,7 +221,7 @@ export default function EventsScreen({ me }) {
               staff={staff}
               player={me?.role === 'PLAYER'}
               onRegister={register}
-              onCancel={cancel}
+              onCancel={askCancel}
               onPlace={setPlace}
               onEdit={() => setEditor(item)}
               onDelete={removeEvent}
@@ -217,6 +234,14 @@ export default function EventsScreen({ me }) {
           item={editor === true ? null : editor}
           onClose={() => setEditor(null)}
           onSave={saveEvent}
+        />
+      )}
+      {cancelTarget && (
+        <CancelBookingDialog
+          busy={canceling}
+          error={cancelError}
+          onClose={() => { if (!canceling) setCancelTarget(null) }}
+          onConfirm={confirmCancel}
         />
       )}
     </section>
@@ -234,18 +259,16 @@ function PlaceField({ onSave }) {
 }
 
 function EventCard({ item, staff, player, onRegister, onCancel, onPlace, onEdit, onDelete }) {
-  const [guests, setGuests] = useState('0')
-
   return (
     <article className="panel stack">
       <h2>{item.title}</h2>
-      <p className="muted">{TYPE[item.eventType] || item.eventType} · {when(item.startsAt)} · {item.status}</p>
+      <p className="muted">{TYPE[item.eventType] || item.eventType}</p>
+      <p className="muted">{when(item.startsAt)}</p>
       {item.description ? <p>{item.description}</p> : null}
-      <p className="muted">
-        {item.hostNick ? `ведущий ${item.hostNick}` : ''}
-        {item.capacity != null ? ` · мест ${item.capacity}` : ''}
-        {item.price != null ? ` · ${item.price} BYN` : ''}
-      </p>
+      {item.capacity != null ? (
+        <p className="muted">записаны {item.taken ?? 0} из {item.capacity}</p>
+      ) : null}
+      {item.price != null ? <p className="muted">{item.price} BYN</p> : null}
       {staff && (
         <div className="user-actions">
           <button type="button" className="btn-secondary btn-s" onClick={onEdit}>Изменить</button>
@@ -254,21 +277,20 @@ function EventCard({ item, staff, player, onRegister, onCancel, onPlace, onEdit,
       )}
       {player && !item.mine && (
         <div className="user-actions">
-          <input value={guests} onChange={(event) => setGuests(event.target.value)} placeholder="гости" inputMode="numeric" />
-          <button type="button" className="btn-primary btn-s" onClick={() => onRegister(item, guests)}>Записаться</button>
+          <button type="button" className="btn-primary btn-s" onClick={() => onRegister(item, 0)}>Записаться</button>
         </div>
       )}
       {player && item.mine && (
-        <div className="user-actions">
-          <p className="muted">Вы записаны · гостей {item.mine.guestCount}{item.mine.finalPlace ? ` · место ${item.mine.finalPlace}` : ''}</p>
+        <>
+          <p className="muted">Вы записаны</p>
           <button type="button" className="btn-ghost btn-s" onClick={() => onCancel(item)}>Отменить запись</button>
-        </div>
+        </>
       )}
       {staff && item.registrations.length > 0 && (
         <div className="stack">
           {item.registrations.map((row) => (
             <div key={row.id} className="user-actions">
-              <span>{row.nick} · гостей {row.guestCount}{row.finalPlace ? ` · место ${row.finalPlace}` : ''}</span>
+              <span>{row.nick}{row.finalPlace ? ` · место ${row.finalPlace}` : ''}</span>
               <PlaceField onSave={(value) => onPlace(item, row, value)} />
             </div>
           ))}

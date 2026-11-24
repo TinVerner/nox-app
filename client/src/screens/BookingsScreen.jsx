@@ -20,7 +20,38 @@ function nightParts(iso) {
   }
 }
 
-export default function BookingsScreen() {
+function showPoints(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return null
+  const text = Number.isInteger(number) ? String(number) : String(Math.round(number * 100) / 100)
+  return number > 0 ? `+${text}` : text
+}
+
+function bookingState(row) {
+  const past = row.past || row.gameStatus === 'DONE' || (row.startsAt && new Date(row.startsAt).getTime() <= Date.now())
+  if (!past) {
+    return {
+      label: STATUS[row.status] || row.status,
+      className: row.status === 'WAITING' ? 'status-wait' : 'status-ok',
+      action: 'cancel',
+    }
+  }
+  if (row.resultsPublished) {
+    const points = showPoints(row.points)
+    return {
+      label: points != null ? `Сыграна ${points}` : 'Сыграна',
+      className: 'status-muted',
+      action: 'result',
+    }
+  }
+  return {
+    label: 'Подождите, результаты ещё формируются',
+    className: 'status-wait',
+    action: null,
+  }
+}
+
+export default function BookingsScreen({ onOpenPlayed }) {
   const [bookings, setBookings] = useState(null)
   const [confirmId, setConfirmId] = useState(null)
   const [canceling, setCanceling] = useState(false)
@@ -61,6 +92,7 @@ export default function BookingsScreen() {
         <div className="night-list">
           {bookings.map((row) => {
             const when = nightParts(row.startsAt)
+            const state = bookingState(row)
             return (
               <article key={row.id} className="night-card">
                 <div className="night-card__when">
@@ -72,11 +104,25 @@ export default function BookingsScreen() {
                   <p className="muted">{row.place}{row.seats != null ? ` · ${row.taken ?? 0} из ${row.seats}` : ''}</p>
                 </div>
                 <div className="night-card__side">
-                  <span className={row.gameStatus === 'DONE' ? 'status-muted' : row.status === 'WAITING' ? 'status-wait' : 'status-ok'}>
-                    {row.gameStatus === 'DONE' ? 'Сыграна' : (STATUS[row.status] || row.status)}
-                    {row.gameStatus === 'DONE' && row.points != null ? ` ${row.points > 0 ? '+' : ''}${row.points}` : ''}
-                  </span>
-                  <button type="button" className="btn-ghost btn-s" onClick={() => { setCancelError(''); setConfirmId(row.id) }}>Отменить</button>
+                  <span className={state.className}>{state.label}</span>
+                  {state.action === 'cancel' ? (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-s"
+                      onClick={() => { setCancelError(''); setConfirmId(row.id) }}
+                    >
+                      Отменить
+                    </button>
+                  ) : null}
+                  {state.action === 'result' ? (
+                    <button
+                      type="button"
+                      className="btn-secondary btn-s"
+                      onClick={() => onOpenPlayed?.(row.gameId)}
+                    >
+                      Смотреть результат
+                    </button>
+                  ) : null}
                 </div>
               </article>
             )

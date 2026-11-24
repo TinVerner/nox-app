@@ -58,6 +58,13 @@ router.post('/games/:id/book', async (req, res) => {
   await notifyHost(night, bookingMessage(action, me.displayName, night))
 })
 
+function nightPast(night, now = Date.now()) {
+  if (!night) return false
+  if (night.status === 'DONE' || night.status === 'CANCELLED') return true
+  if (night.startsAt && night.startsAt.getTime() <= now) return true
+  return false
+}
+
 router.get('/bookings', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'сначала войди' })
@@ -68,6 +75,14 @@ router.get('/bookings', async (req, res) => {
   })
   const nightIds = bookings.map((booking) => booking.gameNightId)
   const taken = await takenCounts(nightIds)
+  const publishedNights = new Set()
+  if (nightIds.length) {
+    const parties = await prisma.party.findMany({
+      where: { gameNightId: { in: nightIds }, status: { in: ['PUBLISHED', 'DONE'] } },
+      select: { gameNightId: true },
+    })
+    for (const party of parties) publishedNights.add(party.gameNightId)
+  }
   const played = nightIds.length
     ? await prisma.partyPlayer.findMany({
       where: {
@@ -83,18 +98,26 @@ router.get('/bookings', async (req, res) => {
     const key = row.party.gameNightId
     pointsByNight.set(key, (pointsByNight.get(key) || 0) + scoreOf(row))
   }
-  res.json(bookings.map((booking) => ({
-    id: booking.id,
-    gameId: booking.gameNightId,
-    status: booking.status,
-    gameStatus: booking.night?.status ?? null,
-    title: booking.night?.title ?? null,
-    startsAt: booking.night?.startsAt ?? null,
-    place: booking.night?.description || '',
-    seats: booking.night?.capacity ?? null,
-    taken: taken.get(booking.gameNightId) || 0,
-    points: pointsByNight.has(booking.gameNightId) ? pointsByNight.get(booking.gameNightId) : null,
-  })))
+  const now = Date.now()
+  res.json(bookings.map((booking) => {
+    const past = nightPast(booking.night, now)
+    const resultsPublished = publishedNights.has(booking.gameNightId)
+    return {
+      id: booking.id,
+      gameId: booking.gameNightId,
+      status: booking.status,
+      gameStatus: booking.night?.status ?? null,
+      title: booking.night?.title ?? null,
+      startsAt: booking.night?.startsAt ?? null,
+      place: booking.night?.description || '',
+      seats: booking.night?.capacity ?? null,
+      taken: taken.get(booking.gameNightId) || 0,
+      points: pointsByNight.has(booking.gameNightId) ? pointsByNight.get(booking.gameNightId) : null,
+      past,
+      resultsPublished,
+      canCancel: !past,
+    }
+  }))
 })
 
 router.delete('/bookings/:id', async (req, res) => {
@@ -104,6 +127,9 @@ router.delete('/bookings/:id', async (req, res) => {
   const booking = id ? await prisma.booking.findUnique({ where: { id }, include: { night: true } }) : null
   if (!booking) return res.status(404).json({ error: 'не найдено' })
   if (booking.userId !== me.id) return res.status(403).json({ error: 'нельзя' })
+  if (nightPast(booking.night)) {
+    return res.status(403).json({ error: 'прошедшую запись нельзя отменить' })
+  }
   await prisma.booking.update({
     where: { id: booking.id },
     data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: 'отмена игроком' },

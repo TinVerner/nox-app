@@ -6,7 +6,8 @@ import { isHost, meOrNull } from '../auth/session.js'
 const router = Router()
 const TYPES = new Set(['TOURNAMENT', 'CLUB_EVENT'])
 
-function eventJson(item, registrations, mine) {
+function eventJson(item, registrations, mine, allRegistrations) {
+  const roster = allRegistrations || registrations
   return {
     id: item.id,
     eventType: item.eventType,
@@ -17,6 +18,7 @@ function eventJson(item, registrations, mine) {
     description: item.description || '',
     startsAt: item.startsAt,
     capacity: item.capacity,
+    taken: taken(roster),
     price: item.price == null ? null : num(item.price),
     status: item.status,
     registrations: registrations.map((row) => ({
@@ -57,7 +59,7 @@ router.get('/events', async (req, res) => {
   res.json(items.map((item) => {
     const mine = item.registrations.find((row) => row.userId === me.id) || null
     const visible = staff ? item.registrations : mine ? [mine] : []
-    return eventJson(item, visible, mine)
+    return eventJson(item, visible, mine, item.registrations)
   }))
 })
 
@@ -182,7 +184,7 @@ router.post('/events/:id/register', async (req, res) => {
     },
   })
   const mine = fresh.registrations.find((row) => row.userId === me.id)
-  res.status(201).json(eventJson(fresh, [mine], mine))
+  res.status(201).json(eventJson(fresh, [mine], mine, fresh.registrations))
 })
 
 router.delete('/events/:id/register', async (req, res) => {

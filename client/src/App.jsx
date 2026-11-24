@@ -59,6 +59,7 @@ function App() {
   const [screen, setScreen] = useState('home')
   const [memberId, setMemberId] = useState(null)
   const [resultsNightId, setResultsNightId] = useState(null)
+  const [playedFocusId, setPlayedFocusId] = useState(null)
   const [memberBack, setMemberBack] = useState('members')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -86,6 +87,7 @@ function App() {
     if (window.location.hash || (path !== '/' && path !== '')) {
       window.history.replaceState(null, '', '/' + window.location.search)
     }
+    if (next !== 'played') setPlayedFocusId(null)
     openScreen(next)
   }
 
@@ -342,7 +344,14 @@ function App() {
         {screen === 'member' && shell === 'host' && (
           <MemberScreen memberId={memberId} onBack={() => go(memberBack)} />
         )}
-        {screen === 'bookings' && <BookingsScreen />}
+        {screen === 'bookings' && (
+          <BookingsScreen
+            onOpenPlayed={(gameId) => {
+              go('played')
+              setPlayedFocusId(gameId)
+            }}
+          />
+        )}
         {screen === 'profile' && me && <ProfileScreen me={me} onAccount={setMe} />}
         {screen === 'results' && shell === 'host' && (
           <ResultsScreen
@@ -351,7 +360,9 @@ function App() {
             onPublished={() => go('games')}
           />
         )}
-        {screen === 'played' && me && (shell === 'host' || shell === 'player') && <PlayedScreen />}
+        {screen === 'played' && me && (shell === 'host' || shell === 'player') && (
+          <PlayedScreen focusId={playedFocusId} />
+        )}
         {screen === 'seasons' && shell === 'host' && <SeasonsScreen />}
         {screen === 'sanctions' && shell === 'admin' && <SanctionsScreen />}
         {screen === 'excel' && shell === 'admin' && <ExcelScreen />}

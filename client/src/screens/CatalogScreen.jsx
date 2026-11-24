@@ -47,9 +47,7 @@ function CatalogModal({ item, onClose, onSave }) {
 
 export default function CatalogScreen({ me }) {
   const staff = me?.role === 'HOST'
-  const player = me?.role === 'PLAYER'
   const [items, setItems] = useState(null)
-  const [bonus, setBonus] = useState(me?.bonus ?? null)
   const [editor, setEditor] = useState(null)
   const [error, setError] = useState('')
 
@@ -62,13 +60,7 @@ export default function CatalogScreen({ me }) {
 
   useEffect(() => {
     load()
-    if (player) {
-      apiFetch('/api/me')
-        .then((response) => (response.ok ? response.json() : null))
-        .then((account) => setBonus(account ? account.bonus : null))
-        .catch(() => setBonus(null))
-    }
-  }, [staff, player])
+  }, [staff])
 
   async function saveItem(draft) {
     setError('')
@@ -88,7 +80,7 @@ export default function CatalogScreen({ me }) {
     if (editing) {
       setItems((rows) => (rows || []).map((row) => (row.id === data.id ? data : row)))
     } else {
-      setItems((rows) => [...(rows || []), data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
+      setItems((rows) => [...(rows || []), data].sort((a, b) => (a.cashPrice ?? 0) - (b.cashPrice ?? 0)))
     }
     return true
   }
@@ -103,13 +95,7 @@ export default function CatalogScreen({ me }) {
     setItems((rows) => (rows || []).filter((row) => row.id !== item.id))
   }
 
-  async function buy(item) {
-    setError('')
-    const response = await apiFetch('/api/catalog/' + item.id + '/buy', { method: 'POST' })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) return setError(data.error || 'не вышло')
-    setBonus(data.bonus)
-  }
+  const visible = (items || []).filter((item) => staff || item.active !== false)
 
   return (
     <section className="screen">
@@ -117,46 +103,33 @@ export default function CatalogScreen({ me }) {
         <div>
           <p className="eyebrow">Клуб</p>
           <h1>Каталог услуг</h1>
-          {staff ? (
-            <p className="lede">В данном разделе вы можете приобрести подарочные сертификаты на игры либо именные маски.</p>
-          ) : player ? (
-            <p className="lede">
-              В данном разделе вы можете приобрести подарочные сертификаты на игры либо именные маски.
-              Бонусы: {bonus == null ? '—' : bonus}.
-            </p>
-          ) : (
-            <p className="lede">В данном разделе вы можете приобрести подарочные сертификаты на игры либо именные маски.</p>
-          )}
+          <p className="lede">
+            Подарочные сертификаты и именные маски. Если хотите заказать — свяжитесь с ведущим.
+          </p>
         </div>
         {staff && (
           <button type="button" className="btn-primary" onClick={() => setEditor(true)}>Создать товар</button>
         )}
       </div>
       {error ? <p className="error">{error}</p> : null}
-      {items === null ? null : items.length === 0 ? (
+      {items === null ? null : visible.length === 0 ? (
         <p className="muted">пусто</p>
       ) : (
         <div className="catalog-grid">
-          {items.map((item) => (
+          {visible.map((item) => (
             <article key={item.id} className="catalog-tile">
               <div className="catalog-tile__body">
                 <h2>{item.name}</h2>
                 {item.description ? <p>{item.description}</p> : null}
-                <p className="muted">{money(item.cashPrice)} BYN · {money(item.bonusPrice)} бонусов</p>
+                <p className="price">{money(item.cashPrice)} BYN</p>
                 {staff && !item.active ? <p className="muted">скрыт</p> : null}
               </div>
-              <div className="catalog-tile__actions">
-                {staff ? (
-                  <>
-                    <button type="button" className="btn-secondary btn-s" onClick={() => setEditor(item)}>Изменить</button>
-                    <button type="button" className="btn-ghost btn-s" onClick={() => removeItem(item)}>Удалить</button>
-                  </>
-                ) : player ? (
-                  <button type="button" className="btn-primary btn-s" onClick={() => buy(item)} disabled={item.bonusPrice == null}>
-                    Списать бонусы
-                  </button>
-                ) : null}
-              </div>
+              {staff ? (
+                <div className="catalog-tile__actions">
+                  <button type="button" className="btn-secondary btn-s" onClick={() => setEditor(item)}>Изменить</button>
+                  <button type="button" className="btn-ghost btn-s" onClick={() => removeItem(item)}>Удалить</button>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
