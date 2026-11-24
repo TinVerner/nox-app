@@ -3,7 +3,7 @@ import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { meOrNull } from '../auth/session.js'
 import { approvedBookingBlock } from '../sanctions/policy.js'
-import { takenCounts } from '../game-nights/night.js'
+import { nightManageBlocked, PUBLIC_NIGHT, takenCounts } from '../game-nights/night.js'
 import { scoreOf } from '../results/score.js'
 import { bookingMessage, notifyHost } from './notify-host.js'
 
@@ -11,59 +11,56 @@ const WAITLIST_SIZE = 4
 
 const router = Router()
 
+// Строка вечера блокируется до конца транзакции: параллельные записи и отмены идут по очереди,
+// поэтому мест не бывает больше, чем capacity.
+function lockNight(tx, nightId) {
+  return tx.$queryRaw`SELECT id FROM game_nights WHERE id = ${nightId} FOR UPDATE`
+}
+
+function bookingClosed(night, now = Date.now()) {
+  if (!PUBLIC_NIGHT.has(night.status) || night.season?.status === 'CLOSED') return true
+  if (nightManageBlocked(night, now)) return true
+  return Boolean(night.registrationDeadlineAt && night.registrationDeadlineAt.getTime() < now)
+}
+
 router.post('/games/:id/book', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'сначала войди' })
   if (me.role !== 'PLAYER') return res.status(403).json({ error: 'запись только для игроков' })
-  if (me.status === 'BLOCKED') return res.status(403).json({ error: 'аккаунт заблокирован' })
   const id = idParam(req.params.id)
-  const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
-  if (!night) return res.status(404).json({ error: 'игра не найдена' })
-  if (night.status === 'CANCELLED') return res.status(403).json({ error: 'запись закрыта' })
-  // дедлайн записи хранится в game_nights.registration_deadline_at
-  if (night.registrationDeadlineAt && night.registrationDeadlineAt.getTime() < Date.now()) {
-    return res.status(403).json({ error: 'запись закрыта' })
-  }
+  if (!id) return res.status(404).json({ error: 'игра не найдена' })
   const blocked = await approvedBookingBlock(me.id)
   if (blocked) return res.status(403).json({ error: 'запись закрыта' })
-  const takenNow = (await takenCounts([night.id])).get(night.id) || 0
-  const waiting = await prisma.booking.count({ where: { gameNightId: night.id, status: 'WAITING' } })
-  let status = 'CONFIRMED'
-  if (takenNow >= night.capacity) {
-    if (waiting >= WAITLIST_SIZE) return res.status(409).json({ error: 'лист ожидания полон' })
-    status = 'WAITING'
-  }
-  const existing = await prisma.booking.findUnique({
-    where: { gameNightId_userId: { gameNightId: night.id, userId: me.id } },
+  const outcome = await prisma.$transaction(async (tx) => {
+    await lockNight(tx, id)
+    const night = await tx.gameNight.findUnique({ where: { id }, include: { season: true } })
+    if (!night) return { httpStatus: 404, error: 'игра не найдена' }
+    if (bookingClosed(night)) return { httpStatus: 403, error: 'запись закрыта' }
+    const existing = await tx.booking.findUnique({
+      where: { gameNightId_userId: { gameNightId: id, userId: me.id } },
+    })
+    if (existing && existing.status !== 'CANCELLED') return { httpStatus: 409, error: 'уже записана' }
+    const confirmed = await tx.booking.count({ where: { gameNightId: id, status: 'CONFIRMED' } })
+    let status = 'CONFIRMED'
+    if (confirmed >= night.capacity) {
+      const waiting = await tx.booking.count({ where: { gameNightId: id, status: 'WAITING' } })
+      if (waiting >= WAITLIST_SIZE) return { httpStatus: 409, error: 'лист ожидания полон' }
+      status = 'WAITING'
+    }
+    const booking = existing
+      ? await tx.booking.update({
+        where: { id: existing.id },
+        data: { status, cancelledAt: null, cancellationReason: null },
+      })
+      : await tx.booking.create({ data: { gameNightId: id, userId: me.id, status } })
+    return { night, booking }
   })
-  if (existing && existing.status !== 'CANCELLED') return res.status(409).json({ error: 'уже записана' })
-  const booking = existing
-    ? await prisma.booking.update({
-      where: { id: existing.id },
-      data: {
-        status,
-        cancelledAt: null,
-        cancellationReason: null,
-      },
-    })
-    : await prisma.booking.create({
-      data: {
-        gameNightId: night.id,
-        userId: me.id,
-        status,
-      },
-    })
+  if (outcome.error) return res.status(outcome.httpStatus).json({ error: outcome.error })
+  const { night, booking } = outcome
   res.status(201).json(booking)
-  const action = status === 'WAITING' ? 'wait' : 'book'
+  const action = booking.status === 'WAITING' ? 'wait' : 'book'
   await notifyHost(night, bookingMessage(action, me.displayName, night))
 })
-
-function nightPast(night, now = Date.now()) {
-  if (!night) return false
-  if (night.status === 'DONE' || night.status === 'CANCELLED') return true
-  if (night.startsAt && night.startsAt.getTime() <= now) return true
-  return false
-}
 
 router.get('/bookings', async (req, res) => {
   const me = await meOrNull(req)
@@ -100,7 +97,7 @@ router.get('/bookings', async (req, res) => {
   }
   const now = Date.now()
   res.json(bookings.map((booking) => {
-    const past = nightPast(booking.night, now)
+    const past = nightManageBlocked(booking.night, now) !== null
     const resultsPublished = publishedNights.has(booking.gameNightId)
     return {
       id: booking.id,
@@ -124,22 +121,45 @@ router.delete('/bookings/:id', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'сначала войди' })
   const id = idParam(req.params.id)
-  const booking = id ? await prisma.booking.findUnique({ where: { id }, include: { night: true } }) : null
-  if (!booking) return res.status(404).json({ error: 'не найдено' })
-  if (booking.userId !== me.id) return res.status(403).json({ error: 'нельзя' })
-  if (nightPast(booking.night)) {
-    return res.status(403).json({ error: 'прошедшую запись нельзя отменить' })
-  }
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: 'отмена игроком' },
+  const found = id ? await prisma.booking.findUnique({ where: { id } }) : null
+  if (!found) return res.status(404).json({ error: 'не найдено' })
+  if (found.userId !== me.id) return res.status(403).json({ error: 'нельзя' })
+  const outcome = await prisma.$transaction(async (tx) => {
+    await lockNight(tx, found.gameNightId)
+    const booking = await tx.booking.findUnique({ where: { id }, include: { night: true } })
+    if (booking.status === 'CANCELLED') return { httpStatus: 409, error: 'запись уже отменена' }
+    if (nightManageBlocked(booking.night)) {
+      return { httpStatus: 403, error: 'прошедшую запись нельзя отменить' }
+    }
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: 'отмена игроком' },
+    })
+    if (booking.status !== 'CONFIRMED') return { booking }
+    // Освободилось место — его получает тот, кто дольше всех ждёт.
+    const confirmed = await tx.booking.count({ where: { gameNightId: booking.gameNightId, status: 'CONFIRMED' } })
+    if (confirmed >= booking.night.capacity) return { booking }
+    const next = await tx.booking.findFirst({
+      where: { gameNightId: booking.gameNightId, status: 'WAITING' },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+    })
+    if (next) {
+      await tx.booking.update({ where: { id: next.id }, data: { status: 'CONFIRMED' } })
+      await tx.notification.create({
+        data: {
+          userId: next.userId,
+          notificationType: 'BOOKING',
+          message: `Освободилось место — вы записаны на «${booking.night.title}»`,
+          targetPath: '/bookings',
+        },
+      })
+    }
+    return { booking }
   })
+  if (outcome.error) return res.status(outcome.httpStatus).json({ error: outcome.error })
   res.json({ ok: true })
-  const player = await prisma.user.findUnique({
-    where: { id: booking.userId },
-    select: { displayName: true },
-  })
-  await notifyHost(booking.night, bookingMessage('cancel', player?.displayName, booking.night))
+  const { night } = outcome.booking
+  await notifyHost(night, bookingMessage('cancel', me.displayName, night))
 })
 
 export default router

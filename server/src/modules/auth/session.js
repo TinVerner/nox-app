@@ -51,7 +51,18 @@ export function isAdmin(user) {
 
 export async function meOrNull(req) {
   if (!req.userId) return null
-  return prisma.user.findUnique({ where: { id: req.userId } })
+  const user = await prisma.user.findUnique({ where: { id: req.userId } })
+  // Блокировка действует сразу, а не после истечения сессии.
+  return user && user.status !== 'BLOCKED' ? user : null
+}
+
+export function normalizeEmail(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+// Старые аккаунты могли сохраниться с заглавными буквами, поэтому ищем без учёта регистра.
+export function findUserByEmail(email) {
+  return prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } })
 }
 
 export function passwordMeetsRules(password) {

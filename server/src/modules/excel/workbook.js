@@ -1,12 +1,13 @@
+import crypto from 'crypto'
 import ExcelJS from 'exceljs'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../../shared/prisma.js'
+import { findUserByEmail, normalizeEmail } from '../auth/session.js'
 
 const ROLES = new Set(['PLAYER', 'HOST', 'ADMIN'])
 const USER_STATUSES = new Set(['ACTIVE', 'BLOCKED'])
 const NIGHT_STATUSES = new Set(['PLANNED', 'PUBLISHED', 'OPEN', 'CANCELLED', 'DONE'])
 const BOOKING_STATUSES = new Set(['CONFIRMED', 'CANCELLED', 'WAITING'])
-const DEFAULT_IMPORT_PASSWORD = 'Import1!'
 
 function rawCell(value) {
   if (value == null) return ''
@@ -55,6 +56,13 @@ function asDate(value) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value
   const parsed = new Date(asText(value))
   return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+// Одна плохая строка не должна обрывать импорт на середине.
+function rowError(error) {
+  console.error(error)
+  if (error?.code === 'P2002') return 'такая запись уже есть'
+  return 'не удалось сохранить строку'
 }
 
 function sheetData(workbook, name) {
@@ -177,13 +185,13 @@ export async function importClubWorkbook(buffer) {
     game_nights: { created: 0, updated: 0, skipped: 0 },
     bookings: { created: 0, updated: 0, skipped: 0 },
     errors: [],
+    // Новым аккаунтам выдаётся случайный пароль; админ передаёт его игроку один раз.
+    passwords: [],
   }
-
-  const defaultHash = await bcrypt.hash(DEFAULT_IMPORT_PASSWORD, 10)
 
   const usersSheet = sheetData(workbook, 'users')
   for (const row of usersSheet.rows) {
-    const email = asText(cell(row, usersSheet.headers, 'email')).toLowerCase()
+    const email = normalizeEmail(asText(cell(row, usersSheet.headers, 'email')))
     if (!email) {
       summary.users.skipped += 1
       continue
@@ -200,22 +208,24 @@ export async function importClubWorkbook(buffer) {
       summary.users.skipped += 1
       continue
     }
-    const data = {
-      displayName,
-      phone,
-      role,
-      status,
-      bonusBalance: bonus == null ? 0 : bonus,
-    }
-    const existing = await prisma.user.findUnique({ where: { email } })
-    if (existing) {
-      await prisma.user.update({ where: { id: existing.id }, data })
-      summary.users.updated += 1
-    } else {
-      await prisma.user.create({
-        data: { email, passwordHash: defaultHash, ...data },
-      })
-      summary.users.created += 1
+    const data = { displayName, phone, role, status }
+    // Пустая ячейка не обнуляет баланс существующего игрока.
+    if (bonus != null) data.bonusBalance = bonus
+    try {
+      const existing = await findUserByEmail(email)
+      if (existing) {
+        await prisma.user.update({ where: { id: existing.id }, data })
+        summary.users.updated += 1
+      } else {
+        const password = crypto.randomBytes(9).toString('base64url')
+        const passwordHash = await bcrypt.hash(password, 10)
+        await prisma.user.create({ data: { email, passwordHash, ...data } })
+        summary.passwords.push({ email, password })
+        summary.users.created += 1
+      }
+    } catch (error) {
+      summary.errors.push(`users ${email}: ${rowError(error)}`)
+      summary.users.skipped += 1
     }
   }
 
@@ -268,13 +278,18 @@ export async function importClubWorkbook(buffer) {
       capacity,
       status,
     }
-    const existing = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
-    if (existing) {
-      await prisma.gameNight.update({ where: { id: existing.id }, data })
-      summary.game_nights.updated += 1
-    } else {
-      await prisma.gameNight.create({ data })
-      summary.game_nights.created += 1
+    try {
+      const existing = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
+      if (existing) {
+        await prisma.gameNight.update({ where: { id: existing.id }, data })
+        summary.game_nights.updated += 1
+      } else {
+        await prisma.gameNight.create({ data })
+        summary.game_nights.created += 1
+      }
+    } catch (error) {
+      summary.errors.push(`game_nights ${title}: ${rowError(error)}`)
+      summary.game_nights.skipped += 1
     }
   }
 
@@ -307,17 +322,22 @@ export async function importClubWorkbook(buffer) {
       cancelledAt: asDate(cell(row, bookingsSheet.headers, 'cancelledAt')),
       overCapacityOverride: override == null ? false : override,
     }
-    const existing = await prisma.booking.findUnique({
-      where: { gameNightId_userId: { gameNightId, userId } },
-    })
-    if (existing) {
-      await prisma.booking.update({ where: { id: existing.id }, data })
-      summary.bookings.updated += 1
-    } else {
-      await prisma.booking.create({
-        data: { gameNightId, userId, ...data },
+    try {
+      const existing = await prisma.booking.findUnique({
+        where: { gameNightId_userId: { gameNightId, userId } },
       })
-      summary.bookings.created += 1
+      if (existing) {
+        await prisma.booking.update({ where: { id: existing.id }, data })
+        summary.bookings.updated += 1
+      } else {
+        await prisma.booking.create({
+          data: { gameNightId, userId, ...data },
+        })
+        summary.bookings.created += 1
+      }
+    } catch (error) {
+      summary.errors.push(`bookings ${userEmail} / ${gameNightId}: ${rowError(error)}`)
+      summary.bookings.skipped += 1
     }
   }
 

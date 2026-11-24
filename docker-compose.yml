@@ -5,15 +5,18 @@ services:
     env_file:
       - .env
     ports:
-      - "5432:5432"
+      # Только для локальных инструментов (DataGrip, prisma studio); снаружи машины БД не видна.
+      - "127.0.0.1:5432:5432"
     volumes:
       - nox_pg_data:/var/lib/postgresql/data
 
   nox-api:
+    build: ./server
     image: nox-api
     container_name: nox-api
     env_file:
-      - ./server/.env
+      - path: ./server/.env
+        required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@nox-db:5432/${POSTGRES_DB}
       SESSION_SECRET: ${SESSION_SECRET}
@@ -33,5 +36,5 @@ services:
 
 volumes:
   nox_pg_data:
-    external: true
+    # Имя прежнего тома: существующие данные подхватятся, а в чистом клоне том создастся сам.
     name: nox-app_nox_pg_data

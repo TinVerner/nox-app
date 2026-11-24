@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '../../shared/prisma.js'
 import { rankCodes } from '../ranks/defs.js'
 import { userJson } from '../users/user-json.js'
-import { clearSessionCookie, meOrNull, openSession, passwordMeetsRules } from './session.js'
+import { clearSessionCookie, findUserByEmail, meOrNull, normalizeEmail, openSession, passwordMeetsRules } from './session.js'
 
 const router = Router()
 
@@ -18,13 +18,15 @@ router.patch('/me', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'не вошла' })
   const nick = String(req.body.nick ?? '').trim()
-  const email = String(req.body.email ?? '').trim()
-  const login = String(req.body.login ?? email).trim()
+  const email = normalizeEmail(req.body.email)
+  const login = normalizeEmail(req.body.login ?? email)
   const phone = String(req.body.phone ?? '').trim()
   if (!nick || !email || !login) return res.status(400).json({ error: 'Заполни поля' })
   if (login !== email) return res.status(400).json({ error: 'Логин — это email для входа' })
   if (nick.length > 100) return res.status(400).json({ error: 'ник слишком длинный' })
   if (phone.length > 30) return res.status(400).json({ error: 'телефон слишком длинный' })
+  const taken = await findUserByEmail(email)
+  if (taken && taken.id !== me.id) return res.status(409).json({ error: 'email занят' })
   try {
     const user = await prisma.user.update({
       where: { id: me.id },
@@ -65,13 +67,15 @@ router.post('/logout', async (req, res) => {
 })
 
 router.post('/register', async (req, res) => {
-  const { email, password, nick } = req.body
+  const { password, nick } = req.body
+  const email = normalizeEmail(req.body.email)
   if (!email || !password || !nick) return res.status(400).json({ error: 'email, password, nick обязательны' })
   if (!passwordMeetsRules(password)) {
     return res.status(400).json({
       error: 'Пароль не соответствует требованиям: минимум 8 символов, цифра, заглавная буква и спецсимвол',
     })
   }
+  if (await findUserByEmail(email)) return res.status(409).json({ error: 'email занят' })
   const passwordHash = await bcrypt.hash(password, 10)
   try {
     const user = await prisma.user.create({
@@ -85,9 +89,10 @@ router.post('/register', async (req, res) => {
 })
 
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body
+  const email = normalizeEmail(req.body.email)
+  const password = req.body.password
   if (!email || !password) return res.status(400).json({ error: 'email и password обязательны' })
-  const user = await prisma.user.findUnique({ where: { email } })
+  const user = await findUserByEmail(email)
   if (!user) return res.status(401).json({ error: 'неверный email или пароль' })
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) return res.status(401).json({ error: 'неверный email или пароль' })

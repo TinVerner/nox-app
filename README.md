@@ -31,10 +31,16 @@ Vite открывает [http://localhost:5173](http://localhost:5173). Запр
 
 ## Docker
 
-`docker-compose.yml` собирает `web` (5173), `api` (3000) и `db` (Postgres 16, порт 5432, том `nox_pg_data`). API читает `server/.env`. Параметры Postgres для сервиса `db` берутся из корневого `.env`: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
+`docker-compose.yml` поднимает три сервиса:
+
+- `nox-db` — Postgres 16, том `nox-app_nox_pg_data` (создаётся сам, если его нет), порт 5432 только на `127.0.0.1`;
+- `nox-api` — собирается из `server/`, при старте применяет миграции (`prisma migrate deploy`) и запускает API;
+- `nox-proxy` — nginx на [http://localhost:8081](http://localhost:8081): отдаёт собранный клиент из `proxy/html`, проксирует `/api` и `/ws`.
+
+Параметры берутся из корневого `.env` (шаблон — `.env.example`): `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `SESSION_SECRET`. `server/.env` необязателен.
 
 ```bash
+cp .env.example .env   # и поменять пароли
+cd client && npm install && npm run build && cd ..   # клиент собирается в proxy/html
 docker compose up --build
 ```
-
-Схема Prisma и опубликованные порты этим файлом не переопределяются.

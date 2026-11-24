@@ -95,6 +95,16 @@ export default function ExcelScreen() {
             <p className="muted">
               Записи: +{result.bookings?.created || 0} / ≈{result.bookings?.updated || 0} / −{result.bookings?.skipped || 0}
             </p>
+            {(result.passwords || []).length > 0 ? (
+              <>
+                <p className="muted">Пароли новых аккаунтов — показываются один раз, передайте их игрокам:</p>
+                <ul className="stack">
+                  {result.passwords.map((row) => (
+                    <li key={row.email}><code>{row.email}</code> — <code>{row.password}</code></li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
             {(result.errors || []).length > 0 ? (
               <ul className="stack">
                 {result.errors.slice(0, 12).map((line) => (
