@@ -13,6 +13,8 @@ function spaFallback() {
           pathname.startsWith('/__') ||
           pathname.startsWith('/src/') ||
           pathname.startsWith('/node_modules/') ||
+          pathname.startsWith('/api/') ||
+          pathname === '/ws' ||
           pathname.includes('.')
         ) {
           return next()
@@ -30,6 +32,13 @@ function spaFallback() {
 export default defineConfig({
   appType: 'spa',
   plugins: [spaFallback(), react()],
+  // Клиент ходит на свой origin (как через nginx на 8081), поэтому в dev API проксируется.
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/ws': { target: 'ws://localhost:3000', ws: true },
+    },
+  },
   build: {
     outDir: '../proxy/html',
     emptyOutDir: true,

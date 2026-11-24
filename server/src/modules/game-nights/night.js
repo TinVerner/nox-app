@@ -11,6 +11,17 @@ export function minskDate(value) {
   return new Date(`${withSeconds}+03:00`)
 }
 
+// Даты сезона хранятся без времени, поэтому сравниваем с календарным днём старта по Минску.
+export async function seasonIdFor(startsAt) {
+  const day = new Date(startsAt.toLocaleDateString('sv-SE', { timeZone: 'Europe/Minsk' }))
+  const season = await prisma.season.findFirst({
+    where: { status: { not: 'CLOSED' }, startsOn: { lte: day }, endsOn: { gte: day } },
+    orderBy: { startsOn: 'desc' },
+    select: { id: true },
+  })
+  return season?.id ?? null
+}
+
 /** null — можно править/отменить; иначе текст ошибки для API */
 export function nightManageBlocked(night, now = Date.now()) {
   if (!night) return 'игра не найдена'

@@ -2,9 +2,12 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
-import { lockNight, minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, promoteWaiting, PUBLIC_NIGHT, takenCounts } from './night.js'
+import { lockNight, minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, promoteWaiting, PUBLIC_NIGHT, seasonIdFor, takenCounts } from './night.js'
 
 const router = Router()
+// CANCELLED ставит только /cancel (с уведомлениями), DONE вручную запер бы будущий вечер.
+const HOST_STATUSES = new Set(['PLANNED', 'DRAFT', 'PUBLISHED', 'OPEN'])
+const STATUS_ERROR = 'статус: черновик или опубликован; отмена — кнопкой «Отменить»'
 
 router.get('/games', async (req, res) => {
   const me = await meOrNull(req)
@@ -57,6 +60,8 @@ router.post('/games', async (req, res) => {
   if (endsAt.getTime() <= startsAt.getTime()) {
     return res.status(400).json({ error: 'конец должен быть позже начала' })
   }
+  const status = req.body.status || 'PLANNED'
+  if (!HOST_STATUSES.has(status)) return res.status(400).json({ error: STATUS_ERROR })
   const item = await prisma.gameNight.create({
     data: {
       hostId: me.id,
@@ -66,8 +71,9 @@ router.post('/games', async (req, res) => {
       description,
       capacity,
       format: req.body.format || req.body.kind || 'CLASSIC',
-      status: req.body.status || 'PLANNED',
-      seasonId: req.body.seasonId ? Number(req.body.seasonId) : null,
+      status,
+      // Форма сезон не передаёт: без этого вечер не попадёт в рейтинг сезона.
+      seasonId: idParam(req.body.seasonId) || await seasonIdFor(startsAt),
       ...nightExtras(req.body),
     },
   })
@@ -106,7 +112,11 @@ router.patch('/games/:id', async (req, res) => {
   if (req.body.kind !== undefined || req.body.format !== undefined) {
     data.format = req.body.format || req.body.kind
   }
-  if (req.body.status !== undefined) data.status = req.body.status
+  if (req.body.status !== undefined) {
+    if (!HOST_STATUSES.has(req.body.status)) return res.status(400).json({ error: STATUS_ERROR })
+    data.status = req.body.status
+  }
+  if (data.startsAt) data.seasonId = await seasonIdFor(data.startsAt)
   Object.assign(data, nightExtras(req.body))
   const outcome = await prisma.$transaction(async (tx) => {
     await lockNight(tx, id)

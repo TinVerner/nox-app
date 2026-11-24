@@ -37,7 +37,8 @@ router.get('/excel/export', async (req, res) => {
 
 router.post('/excel/import', upload.single('file'), async (req, res) => {
   try {
-    if (!(await requireAdmin(req, res))) return
+    const me = await requireAdmin(req, res)
+    if (!me) return
     if (!req.file?.buffer?.length) {
       return res.status(400).json({ error: 'нужен файл .xlsx' })
     }
@@ -45,7 +46,7 @@ router.post('/excel/import', upload.single('file'), async (req, res) => {
     if (!name.endsWith('.xlsx')) {
       return res.status(400).json({ error: 'только .xlsx' })
     }
-    const summary = await importClubWorkbook(req.file.buffer)
+    const summary = await importClubWorkbook(req.file.buffer, me.id)
     res.json(summary)
   } catch (error) {
     console.error(error)

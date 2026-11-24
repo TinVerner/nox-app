@@ -176,7 +176,7 @@ export async function buildClubWorkbook() {
   return workbook.xlsx.writeBuffer()
 }
 
-export async function importClubWorkbook(buffer) {
+export async function importClubWorkbook(buffer, adminId) {
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buffer)
 
@@ -214,6 +214,12 @@ export async function importClubWorkbook(buffer) {
     try {
       const existing = await findUserByEmail(email)
       if (existing) {
+        // Как и в /users/:id/role: файл не должен снять с админа роль или заблокировать его.
+        if (existing.id === adminId && (role !== existing.role || status !== existing.status)) {
+          summary.errors.push(`users ${email}: свою роль и статус через файл не меняем`)
+          delete data.role
+          delete data.status
+        }
         await prisma.user.update({ where: { id: existing.id }, data })
         summary.users.updated += 1
       } else {

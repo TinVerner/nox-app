@@ -159,25 +159,30 @@ router.post('/events/:id/register', async (req, res) => {
   if (me.role !== 'PLAYER') return res.status(403).json({ error: 'запись только для игроков' })
   if (me.status === 'BLOCKED') return res.status(403).json({ error: 'аккаунт заблокирован' })
   const id = idParam(req.params.id)
-  const item = id
-    ? await prisma.event.findUnique({ where: { id }, include: { registrations: true } })
-    : null
-  if (!item) return res.status(404).json({ error: 'не найдено' })
-  if (item.registrations.some((row) => row.userId === me.id)) {
-    return res.status(409).json({ error: 'уже записана' })
-  }
+  if (!id) return res.status(404).json({ error: 'не найдено' })
   const guestCount = req.body.guestCount == null || req.body.guestCount === '' ? 0 : Number(req.body.guestCount)
   if (!Number.isInteger(guestCount) || guestCount < 0) {
     return res.status(400).json({ error: 'гости должны быть числом' })
   }
-  if (item.capacity != null && taken(item.registrations) + 1 + guestCount > item.capacity) {
-    return res.status(409).json({ error: 'мест нет' })
-  }
-  await prisma.eventRegistration.create({
-    data: { eventId: item.id, userId: me.id, guestCount },
+  const outcome = await prisma.$transaction(async (tx) => {
+    // Как lockNight: параллельные записи на последнее место идут по очереди.
+    await tx.$queryRaw`SELECT id FROM events WHERE id = ${id} FOR UPDATE`
+    const item = await tx.event.findUnique({ where: { id }, include: { registrations: true } })
+    if (!item) return { httpStatus: 404, error: 'не найдено' }
+    if (item.status === 'CANCELLED') return { httpStatus: 403, error: 'событие отменено' }
+    if (item.startsAt.getTime() <= Date.now()) return { httpStatus: 403, error: 'событие уже началось' }
+    if (item.registrations.some((row) => row.userId === me.id)) {
+      return { httpStatus: 409, error: 'уже записана' }
+    }
+    if (item.capacity != null && taken(item.registrations) + 1 + guestCount > item.capacity) {
+      return { httpStatus: 409, error: 'мест нет' }
+    }
+    await tx.eventRegistration.create({ data: { eventId: id, userId: me.id, guestCount } })
+    return {}
   })
+  if (outcome.error) return res.status(outcome.httpStatus).json({ error: outcome.error })
   const fresh = await prisma.event.findUnique({
-    where: { id: item.id },
+    where: { id },
     include: {
       host: { select: { displayName: true } },
       registrations: { include: { user: { select: { displayName: true } } }, orderBy: { registeredAt: 'asc' } },

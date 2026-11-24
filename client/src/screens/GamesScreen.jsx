@@ -247,7 +247,6 @@ function GameModal({ game, onClose, onSave }) {
         <select value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="DRAFT">Черновик</option>
           <option value="PUBLISHED">Опубликован</option>
-          <option value="DONE">Завершён</option>
         </select>
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>Отмена</button>
