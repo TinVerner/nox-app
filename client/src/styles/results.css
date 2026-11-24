@@ -1,3 +1,41 @@
+.result-table-wrap { overflow-x: auto; margin-top: 8px; }
+.result-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.result-table th,
+.result-table td { padding: 10px 8px; vertical-align: top; }
+.result-table thead th {
+  color: var(--muted);
+  font-family: var(--condensed);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.result-table tbody th,
+.result-table td { border-top: 1px solid var(--line); }
+.result-table th:first-child,
+.result-table td:first-child,
+.result-table th:last-child,
+.result-table td:last-child {
+  position: sticky;
+  background: var(--bg);
+}
+.result-table th:first-child,
+.result-table td:first-child { left: 0; z-index: 1; }
+.result-table th:last-child,
+.result-table td:last-child { right: 0; z-index: 1; text-align: right; }
+.result-nick { text-align: left; font-weight: 600; white-space: nowrap; text-transform: none; letter-spacing: 0; font-family: var(--sans); font-size: 16px; color: var(--text); }
+.result-party-name { display: block; margin-bottom: 6px; letter-spacing: 0.12em; text-transform: uppercase; }
+.result-side,
+.result-cell { display: flex; flex-direction: column; gap: 6px; min-width: 148px; }
+.result-side select,
+.result-cell select,
+.result-cell input { min-height: 36px; padding: 6px 8px; border-radius: 10px; }
+.result-cell .btn-s,
+.result-table thead .btn-s { align-self: flex-start; min-height: 28px; padding: 2px 8px; }
+.result-total { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 16px 0; }
+.result-actions label { display: flex; flex-direction: column; gap: 6px; }
+.result-actions select { width: 220px; min-height: 36px; padding: 6px 8px; }
+
 .standings {
   list-style: none;
   margin: 8px 0 0;

@@ -8,7 +8,7 @@ function money(value) {
 }
 
 export default function CatalogScreen({ me }) {
-  const admin = me?.role === 'ADMIN'
+  const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
   const [items, setItems] = useState(null)
   const [bonus, setBonus] = useState(me?.bonus ?? null)
   const [draft, setDraft] = useState(EMPTY)
@@ -23,13 +23,13 @@ export default function CatalogScreen({ me }) {
 
   useEffect(() => {
     load()
-    if (!admin) {
+    if (!staff) {
       apiFetch('/api/me')
         .then((response) => (response.ok ? response.json() : null))
         .then((account) => setBonus(account ? account.bonus : null))
         .catch(() => setBonus(null))
     }
-  }, [admin])
+  }, [staff])
 
   async function createItem(event) {
     event.preventDefault()
@@ -74,12 +74,12 @@ export default function CatalogScreen({ me }) {
     <section className="screen">
       <p className="eyebrow">Клуб</p>
       <h1>Каталог услуг</h1>
-      {admin ? (
+      {staff ? (
         <p className="lede">Название, описание, цена в BYN и цена в бонусах.</p>
       ) : (
         <p className="lede">Бонусы: {bonus == null ? '—' : bonus}. Покупка списывает цену в бонусах.</p>
       )}
-      {admin && (
+      {staff && (
         <form className="panel stack" onSubmit={createItem}>
           <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="название" required />
           <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="описание" />
@@ -90,13 +90,13 @@ export default function CatalogScreen({ me }) {
         </form>
       )}
       {items === null ? null : items.length === 0 ? (
-        <p className={admin ? 'muted form-follow' : 'muted'}>пусто</p>
+        <p className={staff ? 'muted form-follow' : 'muted'}>пусто</p>
       ) : (
-        <div className={admin ? 'stack form-follow' : 'stack'}>
-          {!admin && error ? <p className="error">{error}</p> : null}
+        <div className={staff ? 'stack form-follow' : 'stack'}>
+          {!staff && error ? <p className="error">{error}</p> : null}
           {items.map((item) => (
             <article key={item.id} className="panel catalog-card">
-              {admin ? (
+              {staff ? (
                 <CatalogEditor item={item} onSave={(patch) => saveItem(item, patch)} />
               ) : (
                 <>

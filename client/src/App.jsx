@@ -56,6 +56,7 @@ function App() {
   const { me, setMe, logout: endSession } = useSession()
   const [screen, setScreen] = useState('home')
   const [memberId, setMemberId] = useState(null)
+  const [resultsNightId, setResultsNightId] = useState(null)
   const [memberBack, setMemberBack] = useState('members')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -212,11 +213,11 @@ function App() {
     go('home')
   }
 
-  async function book(gameId, guests) {
+  async function book(gameId) {
     const res = await apiFetch('/api/games/' + gameId + '/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guests }),
+      body: JSON.stringify({}),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, error: data.error || 'не вышло' }
@@ -311,6 +312,7 @@ function App() {
             onUpdate={updateGame}
             onCancelNight={cancelNight}
             onLogin={() => go('login')}
+            onResults={(game) => { setResultsNightId(game.id); go('results') }}
           />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
@@ -326,13 +328,13 @@ function App() {
           <MemberScreen memberId={memberId} onBack={() => go(memberBack)} />
         )}
         {screen === 'bookings' && <BookingsScreen />}
-        {screen === 'profile' && <ProfileScreen me={me} />}
-        {screen === 'results' && <ResultsScreen />}
+        {screen === 'profile' && me && <ProfileScreen me={me} onAccount={setMe} />}
+        {screen === 'results' && <ResultsScreen gameId={resultsNightId} onBack={() => go('games')} />}
         {screen === 'seasons' && <SeasonsScreen />}
         {screen === 'overview' && <OverviewScreen setScreen={go} />}
         {screen === 'sanctions' && <SanctionsScreen />}
         {screen === 'rules' && <RulesScreen />}
-        {screen === 'points' && <PointRulesScreen />}
+        {screen === 'points' && shell === 'admin' && <PointRulesScreen />}
         {screen === 'notices' && <NoticesScreen />}
         {screen === 'ranks' && <RanksScreen me={me} />}
         {screen === 'about' && (

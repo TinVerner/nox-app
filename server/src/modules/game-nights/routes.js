@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isStaff, meOrNull } from '../auth/session.js'
-import { minskDate, nightExtras, nightJson, PUBLIC_NIGHT, takenCounts } from './night.js'
+import { minskDate, nightCancelBlocked, nightExtras, nightJson, PUBLIC_NIGHT, takenCounts } from './night.js'
 
 const router = Router()
 
@@ -22,7 +22,25 @@ router.get('/games', async (req, res) => {
       return true
     })
   const taken = await takenCounts(visible.map((night) => night.id))
-  res.json(visible.map((night) => nightJson(night, taken.get(night.id) || 0)))
+  const partyRows = staff && visible.length
+    ? await prisma.party.findMany({
+      where: { gameNightId: { in: visible.map((night) => night.id) } },
+      select: { gameNightId: true, status: true },
+    })
+    : []
+  const resultsStatus = new Map()
+  for (const row of partyRows) {
+    const published = row.status === 'PUBLISHED' || row.status === 'DONE'
+    const current = resultsStatus.get(row.gameNightId)
+    if (current === 'DRAFT') continue
+    if (!published) resultsStatus.set(row.gameNightId, 'DRAFT')
+    else if (!current) resultsStatus.set(row.gameNightId, 'PUBLISHED')
+  }
+  res.json(visible.map((night) => {
+    const json = nightJson(night, taken.get(night.id) || 0)
+    if (staff) json.resultsStatus = resultsStatus.get(night.id) || null
+    return json
+  }))
 })
 
 router.post('/games', async (req, res) => {
@@ -96,7 +114,8 @@ router.post('/games/:id/cancel', async (req, res) => {
   const id = idParam(req.params.id)
   const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
   if (!night) return res.status(404).json({ error: 'игра не найдена' })
-  if (night.status === 'CANCELLED') return res.status(409).json({ error: 'вечер уже отменён' })
+  const blocked = nightCancelBlocked(night)
+  if (blocked) return res.status(409).json({ error: blocked })
   const updated = await prisma.gameNight.update({ where: { id }, data: { status: 'CANCELLED' } })
   const bookings = await prisma.booking.findMany({
     where: { gameNightId: id, status: { in: ['CONFIRMED', 'WAITING'] } },

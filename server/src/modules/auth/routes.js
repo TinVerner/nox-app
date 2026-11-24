@@ -14,6 +14,50 @@ router.get('/me', async (req, res) => {
   res.json(userJson(me, codes.get(me.id)))
 })
 
+router.patch('/me', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me) return res.status(401).json({ error: 'не вошла' })
+  const nick = String(req.body.nick ?? '').trim()
+  const email = String(req.body.email ?? '').trim()
+  const login = String(req.body.login ?? email).trim()
+  const phone = String(req.body.phone ?? '').trim()
+  if (!nick || !email || !login) return res.status(400).json({ error: 'Заполни поля' })
+  if (login !== email) return res.status(400).json({ error: 'Логин — это email для входа' })
+  if (nick.length > 100) return res.status(400).json({ error: 'ник слишком длинный' })
+  if (phone.length > 30) return res.status(400).json({ error: 'телефон слишком длинный' })
+  try {
+    const user = await prisma.user.update({
+      where: { id: me.id },
+      data: { displayName: nick, email, phone: phone || null },
+    })
+    const codes = await rankCodes([user.id])
+    res.json(userJson(user, codes.get(user.id)))
+  } catch (error) {
+    if (error.code === 'P2002') return res.status(409).json({ error: 'email занят' })
+    throw error
+  }
+})
+
+router.post('/me/password', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me) return res.status(401).json({ error: 'не вошла' })
+  const currentPassword = String(req.body.currentPassword ?? '')
+  const newPassword = String(req.body.newPassword ?? '')
+  const confirm = String(req.body.confirm ?? '')
+  if (!currentPassword || !newPassword || !confirm) return res.status(400).json({ error: 'Заполни поля' })
+  if (newPassword !== confirm) return res.status(400).json({ error: 'Пароли не совпали' })
+  if (!passwordMeetsRules(newPassword)) {
+    return res.status(400).json({
+      error: 'Пароль не соответствует требованиям: минимум 8 символов, цифра, заглавная буква и спецсимвол',
+    })
+  }
+  const ok = await bcrypt.compare(currentPassword, me.passwordHash)
+  if (!ok) return res.status(400).json({ error: 'Неверный текущий пароль' })
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  await prisma.user.update({ where: { id: me.id }, data: { passwordHash } })
+  res.json({ ok: true })
+})
+
 router.post('/logout', async (req, res) => {
   if (req.sessionId) await prisma.session.delete({ where: { id: req.sessionId } }).catch(() => {})
   clearSessionCookie(res)

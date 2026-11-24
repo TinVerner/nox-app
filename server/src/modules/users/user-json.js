@@ -4,7 +4,9 @@ export function userJson(user, rankCode) {
   return {
     id: user.id,
     email: user.email,
+    login: user.email,
     nick: user.displayName,
+    phone: user.phone || '',
     role: user.role,
     blocked: user.status === 'BLOCKED',
     rank: rankCode || null,

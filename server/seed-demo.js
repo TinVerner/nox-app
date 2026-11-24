@@ -128,16 +128,9 @@ async function main() {
     return booking
   }
 
-  const qwertyBooking = await book(qwerty, saturday)
+  await book(qwerty, saturday)
   await book(dentessa, tournament)
   await book(brotuzik, novice)
-  if (qwertyBooking) {
-    const guests = await prisma.bookingGuest.count({ where: { bookingId: qwertyBooking.id } })
-    if (guests === 0) {
-      await prisma.bookingGuest.create({ data: { bookingId: qwertyBooking.id, displayName: 'Грейс' } })
-      note('guest', 'Грейс')
-    } else skipped.push('guest already')
-  }
 
   let news = await prisma.newsPost.findFirst({ where: { title: 'Открытие сезона' } })
   if (news) skipped.push('news Открытие сезона')
@@ -363,25 +356,12 @@ async function seedCrowd(tin, season, rankByCode) {
     return booking
   }
 
-  async function addGuest(booking, displayName) {
-    if (!booking) return
-    const existing = await prisma.bookingGuest.findFirst({ where: { bookingId: booking.id, displayName } })
-    if (existing) {
-      skipped.push('guest ' + displayName)
-      return
-    }
-    await prisma.bookingGuest.create({ data: { bookingId: booking.id, displayName } })
-    note('guest', displayName)
-  }
-
-  const seraBooking = await bookNamed(players[0], sunday)
-  await addGuest(seraBooking, 'Рысь')
+  await bookNamed(players[0], sunday)
   await bookNamed(players[1], sunday)
   await bookNamed(players[2], sunday)
   await bookNamed(players[3], sunday)
   await bookNamed(players[4], sunday)
-  const sovaBooking = await bookNamed(players[7], wednesday)
-  await addGuest(sovaBooking, 'Кедр')
+  await bookNamed(players[7], wednesday)
   await bookNamed(players[8], wednesday)
   await bookNamed(players[9], wednesday)
   await bookNamed(players[5], december)

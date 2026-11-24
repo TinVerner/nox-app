@@ -1,13 +1,21 @@
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+.profile-form {
+  width: min(100%, 420px);
+  margin-top: 20px;
 }
 
-.stat-value {
+.profile-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.profile-form h2 {
+  margin: 8px 0 0;
+  font-size: 22px;
+}
+
+.profile-note {
   margin: 0;
-  font-family: var(--condensed);
-  font-size: 40px;
-  line-height: 1;
-  color: var(--text);
 }

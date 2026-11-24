@@ -102,12 +102,63 @@ function liveMark(game, now = Date.now()) {
   }
 }
 
+/** Отмена вечера — только до старта, не для завершённых/отменённых */
+function canCancelNight(game, now = Date.now()) {
+  if (!game || game.status === 'CANCELLED' || game.status === 'DONE') return false
+  const start = new Date(game.startsAt).getTime()
+  return !Number.isNaN(start) && start > now
+}
+
 function bookLabel(game) {
   return (game.taken ?? 0) >= game.seats ? 'Лист ожидания' : 'Записаться'
 }
 
+function indexBookings(rows) {
+  const map = {}
+  const ids = []
+  if (!Array.isArray(rows)) return { map, ids }
+  for (const row of rows) {
+    const gameId = Number(row.gameId)
+    if (!gameId || !row.id) continue
+    map[gameId] = row.id
+    ids.push(gameId)
+  }
+  return { map, ids }
+}
+
+function isBooked(ids, gameId) {
+  const target = Number(gameId)
+  return ids.some((id) => Number(id) === target)
+}
+
 function toLocalInput(iso) {
   return toMinskInput(iso)
+}
+
+function minskInputMillis(value) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value || '')) return null
+  const time = new Date(`${value}:00+03:00`).getTime()
+  return Number.isNaN(time) ? null : time
+}
+
+function nightTimeError(startsAt, endsAt, deadline, now = new Date()) {
+  const min = minskInputMillis(toMinskInput(now.toISOString()))
+  const start = minskInputMillis(startsAt)
+  const end = minskInputMillis(endsAt)
+  if (start == null || end == null || min == null) return 'Укажите дату и время'
+  if (start < min || end < min) return 'Нельзя указать прошедшее время'
+  if (end <= start) return 'Конец должен быть позже начала'
+  if (!deadline) return ''
+  const limit = minskInputMillis(deadline)
+  if (limit == null) {
+    const day = String(deadline).slice(0, 10)
+    const dayStart = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T00:00:00+03:00`).getTime() : NaN
+    if (!Number.isNaN(dayStart) && dayStart < min) return 'Нельзя указать прошедшее время'
+    return 'Укажите время дедлайна'
+  }
+  if (limit < min) return 'Нельзя указать прошедшее время'
+  if (limit >= start) return 'Дедлайн записи должен быть раньше начала'
+  return ''
 }
 
 function GameModal({ game, onClose, onSave }) {
@@ -120,9 +171,17 @@ function GameModal({ game, onClose, onSave }) {
   const [kind, setKind] = useState(game?.kind || 'CLASSIC')
   const [price, setPrice] = useState(game?.price ?? 0)
   const [status, setStatus] = useState(game?.status || 'PUBLISHED')
+  const [timeError, setTimeError] = useState('')
+  const earliest = toMinskInput(new Date().toISOString())
 
   async function submit(event) {
     event.preventDefault()
+    const message = nightTimeError(startsAt, endsAt, deadline)
+    if (message) {
+      setTimeError(message)
+      return
+    }
+    setTimeError('')
     const ok = await onSave({
       title,
       startsAt,
@@ -142,12 +201,13 @@ function GameModal({ game, onClose, onSave }) {
       <form className="stack" onSubmit={submit}>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="название" required />
         <label htmlFor="night-start">Начало</label>
-        <input id="night-start" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required />
+        <input id="night-start" type="datetime-local" min={earliest} value={startsAt} onChange={(event) => { setTimeError(''); setStartsAt(event.target.value) }} required />
         <label htmlFor="night-end">Конец</label>
-        <input id="night-end" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} required />
+        <input id="night-end" type="datetime-local" min={earliest} value={endsAt} onChange={(event) => { setTimeError(''); setEndsAt(event.target.value) }} required />
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="описание" rows={3} />
         <label htmlFor="night-deadline">Дедлайн записи</label>
-        <input id="night-deadline" type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} />
+        <input id="night-deadline" type="datetime-local" min={earliest} value={deadline} onChange={(event) => { setTimeError(''); setDeadline(event.target.value) }} />
+        {timeError ? <p className="error">{timeError}</p> : null}
         <input type="number" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} placeholder="мест" required />
         <select value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="CLASSIC">Классика</option>
@@ -169,7 +229,7 @@ function GameModal({ game, onClose, onSave }) {
   )
 }
 
-export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onLogin }) {
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onLogin, onResults }) {
   const [kindFilter, setKindFilter] = useState('ALL')
   const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
@@ -180,7 +240,6 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [cancelTarget, setCancelTarget] = useState(null)
   const [canceling, setCanceling] = useState(false)
   const [cancelError, setCancelError] = useState('')
-  const [guestDraft, setGuestDraft] = useState('')
   const [editor, setEditor] = useState(null)
   const [nightCancel, setNightCancel] = useState(null)
   const [nightCanceling, setNightCanceling] = useState(false)
@@ -200,12 +259,9 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
       .then((response) => (response.ok ? response.json() : []))
       .then((rows) => {
         if (cancelled) return
-        const map = {}
-        for (const row of rows) {
-          if (row.gameId && row.id) map[row.gameId] = row.id
-        }
-        setBookingByGame(map)
-        setBookedIds(Object.keys(map))
+        const indexed = indexBookings(rows)
+        setBookingByGame(indexed.map)
+        setBookedIds(indexed.ids)
       })
       .catch(() => {
         if (!cancelled) {
@@ -219,9 +275,8 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   }, [me, reloadKey])
 
   function openBooking(game) {
-    if (bookedIds.includes(game.id)) return
+    if (isBooked(bookedIds, game.id)) return
     setBookResult(null)
-    setGuestDraft('')
     setPending(game)
   }
 
@@ -235,21 +290,18 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
     if (booking || !pending) return
     setBooking(true)
     try {
-      const result = await onBook(pending.id, guestDraft)
+      const result = await onBook(pending.id)
       if (!result?.ok) {
         if (result?.error === 'уже записана') {
           const rows = await apiFetch('/api/bookings').then((response) => (response.ok ? response.json() : [])).catch(() => [])
-          const map = {}
-          for (const row of rows) {
-            if (row.gameId && row.id) map[row.gameId] = row.id
-          }
-          setBookingByGame(map)
-          setBookedIds(Object.keys(map))
+          const indexed = indexBookings(rows)
+          setBookingByGame(indexed.map)
+          setBookedIds(indexed.ids)
         }
         setBookResult({ ok: false, error: result?.error || 'не вышло' })
         return
       }
-      setBookedIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]))
+      setBookedIds((ids) => (isBooked(ids, pending.id) ? ids : [...ids, Number(pending.id)]))
       if (result.id) {
         setBookingByGame((map) => ({ ...map, [pending.id]: result.id }))
       }
@@ -261,6 +313,10 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
 
   async function confirmNightCancel() {
     if (nightCanceling || !nightCancel) return
+    if (!canCancelNight(nightCancel)) {
+      setNightCancelError('вечер уже начался')
+      return
+    }
     setNightCanceling(true)
     setNightCancelError('')
     try {
@@ -293,7 +349,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
         delete next[cancelTarget.id]
         return next
       })
-      setBookedIds((ids) => ids.filter((id) => id !== cancelTarget.id))
+      setBookedIds((ids) => ids.filter((id) => Number(id) !== Number(cancelTarget.id)))
       setCancelTarget(null)
     } finally {
       setCanceling(false)
@@ -369,7 +425,12 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               {staff && (
                 <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
               )}
-              {staff && game.status !== 'CANCELLED' && (
+              {staff && (
+                <button type="button" className="btn-primary btn-s" onClick={() => onResults(game)}>
+                  {game.resultsStatus === 'PUBLISHED' ? 'Смотреть результаты' : game.resultsStatus === 'DRAFT' ? 'Продолжить результаты' : 'Записать результаты'}
+                </button>
+              )}
+              {staff && canCancelNight(game) && (
                 <button
                   type="button"
                   className="btn-ghost btn-s"
@@ -378,7 +439,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
                   Отменить
                 </button>
               )}
-              {bookedIds.includes(game.id) ? (
+              {isBooked(bookedIds, game.id) ? (
                 <>
                   <button type="button" className="btn-primary btn-s" disabled>Вы записаны</button>
                   <button type="button" className="btn-ghost btn-s" onClick={() => { setCancelError(''); setCancelTarget(game) }}>Отменить</button>
@@ -408,6 +469,12 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
             <>
               {bookResult.ok ? (
                 <p>Вы записаны на игру</p>
+              ) : bookResult.error === 'уже записана' ? (
+                <p>Вы уже записаны</p>
+              ) : bookResult.error === 'сначала войди' ? (
+                <p className="muted">
+                  Для записи, <a className="comment-login" href="/login" onClick={(event) => { event.preventDefault(); onLogin() }}>войдите</a> в свой аккаунт
+                </p>
               ) : (
                 <p className="error">вы не записались. {bookResult.error}</p>
               )}
@@ -422,7 +489,6 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               <p className="price">{pending.price > 0 ? `${pending.price} BYN` : '0 BYN'}</p>
               <p>{pending.taken ?? 0} из {pending.seats}</p>
               {(pending.taken ?? 0) >= pending.seats && <p>Свободных мест нет. Вы попадёте в лист ожидания.</p>}
-              <input value={guestDraft} onChange={(event) => setGuestDraft(event.target.value)} placeholder="гости через запятую" />
               <div className="modal-actions">
                 <button type="button" className="btn-ghost" onClick={closeBooking} disabled={booking}>Отмена</button>
                 <button type="button" className="btn-primary" onClick={confirmBooking} disabled={booking}>{bookLabel(pending)}</button>

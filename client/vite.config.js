@@ -30,4 +30,8 @@ function spaFallback() {
 export default defineConfig({
   appType: 'spa',
   plugins: [spaFallback(), react()],
+  build: {
+    outDir: '../proxy/html',
+    emptyOutDir: true,
+  },
 })

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { api } from '../api'
 
 export function useGamesSocket(screen) {
   const [gamesReload, setGamesReload] = useState(0)
@@ -10,7 +11,7 @@ export function useGamesSocket(screen) {
   useEffect(() => {
     let socket
     try {
-      socket = new WebSocket('ws://localhost:3000/ws')
+      socket = new WebSocket(api.replace(/^http/, 'ws') + '/ws')
       socket.onmessage = (event) => {
         let data
         try {

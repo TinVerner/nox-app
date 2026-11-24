@@ -19,11 +19,10 @@ const MENUS = {
     items: [
       { screen: 'games', label: 'Вечера' },
       { screen: 'events', label: 'Мероприятия' },
-      { screen: 'results', label: 'Партии' },
-      { screen: 'points', label: 'Очки' },
       { screen: 'seasons', label: 'Сезоны' },
       { screen: 'players', label: 'Игроки' },
       { screen: 'profile', label: 'Профиль' },
+      { screen: 'catalog', label: 'Каталог' },
       { screen: 'rules', label: 'Правила' },
       { screen: 'news', label: 'Новости' },
       { screen: 'about', label: 'О нас' },
@@ -35,6 +34,7 @@ const MENUS = {
     label: 'АДМИНИСТРАТОР',
     items: [
       { screen: 'overview', label: 'Обзор' },
+      { screen: 'points', label: 'Правила начисления' },
       { screen: 'events', label: 'Мероприятия' },
       { screen: 'users', label: 'Пользователи' },
       { screen: 'profile', label: 'Профиль' },

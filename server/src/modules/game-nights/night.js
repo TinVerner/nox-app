@@ -1,5 +1,4 @@
 import { prisma } from '../../shared/prisma.js'
-import { personKey } from '../bookings/people.js'
 
 export const PUBLIC_NIGHT = new Set(['PUBLISHED', 'OPEN'])
 
@@ -10,6 +9,16 @@ export function minskDate(value) {
   if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) return new Date(text)
   const withSeconds = text.length === 16 ? `${text}:00` : text
   return new Date(`${withSeconds}+03:00`)
+}
+
+/** null — можно отменить; иначе текст ошибки для API */
+export function nightCancelBlocked(night, now = Date.now()) {
+  if (!night) return 'игра не найдена'
+  if (night.status === 'CANCELLED') return 'вечер уже отменён'
+  if (night.status === 'DONE') return 'вечер уже завершён'
+  const start = night.startsAt instanceof Date ? night.startsAt.getTime() : new Date(night.startsAt).getTime()
+  if (Number.isNaN(start) || start <= now) return 'вечер уже начался'
+  return null
 }
 
 export function nightJson(night, taken = 0) {
@@ -56,18 +65,12 @@ export async function takenCounts(nightIds) {
   if (!ids.length) return map
   const bookings = await prisma.booking.findMany({
     where: { status: 'CONFIRMED', gameNightId: { in: ids } },
-    include: { guests: true, user: { select: { displayName: true } } },
+    select: { gameNightId: true, userId: true },
   })
   const people = new Map()
   for (const booking of bookings) {
     if (!people.has(booking.gameNightId)) people.set(booking.gameNightId, new Set())
-    const set = people.get(booking.gameNightId)
-    const nick = personKey(booking.user?.displayName)
-    set.add(nick || `user:${booking.userId}`)
-    for (const guest of booking.guests) {
-      const key = personKey(guest.displayName)
-      if (key) set.add(key)
-    }
+    people.get(booking.gameNightId).add(booking.userId)
   }
   for (const [id, set] of people) map.set(id, set.size)
   return map

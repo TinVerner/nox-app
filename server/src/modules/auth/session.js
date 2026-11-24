@@ -41,6 +41,10 @@ export function isStaff(user) {
   return user && (user.role === 'HOST' || user.role === 'ADMIN')
 }
 
+export function isAdmin(user) {
+  return user && user.role === 'ADMIN'
+}
+
 export async function meOrNull(req) {
   if (!req.userId) return null
   return prisma.user.findUnique({ where: { id: req.userId } })

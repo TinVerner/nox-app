@@ -45,21 +45,9 @@ export default function UsersScreen() {
     apply(updated)
   }
 
-  async function setRank(id, rank) {
-    if (rank) {
-      setError('заявку подаёт игрок')
-      return
-    }
-    const res = await apiFetch('/api/members/' + id + '/rank', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rank }),
-    })
-    const updated = await res.json()
-    if (!res.ok) return setError(updated.error || 'не вышло')
-    setError('')
-    setUsers((list) => (list || []).map((user) => (user.id === id ? { ...user, rank: updated.rank } : user)))
-    setSelected((current) => (current && current.id === id ? { ...current, rank: updated.rank } : current))
+  function setRank(rank) {
+    if (!rank) return
+    setError('заявку подаёт игрок')
   }
 
   function openUser(user) {
@@ -158,8 +146,7 @@ export default function UsersScreen() {
           </div>
           <div className="user-rank">
             <label htmlFor="user-rank">Ранг</label>
-            <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(selected.id, event.target.value)}>
-              <option value="">без ранга</option>
+            <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(event.target.value)}>
               {RANKS.map((rank) => (
                 <option key={rank.id} value={rank.id}>{rank.label}</option>
               ))}

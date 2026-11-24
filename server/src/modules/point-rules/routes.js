@@ -1,15 +1,15 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam, num } from '../../shared/input.js'
-import { isStaff, meOrNull } from '../auth/session.js'
-import { ensurePointRules } from './rules.js'
+import { isAdmin, meOrNull } from '../auth/session.js'
+import { alignClassicRules } from './rules.js'
 
 const router = Router()
 
 router.get('/point-rules', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
-  await ensurePointRules()
+  if (!isAdmin(me)) return res.status(403).json({ error: 'только администратор' })
+  await alignClassicRules()
   const rules = await prisma.pointRule.findMany({ orderBy: [{ format: 'asc' }, { playerRole: 'asc' }] })
   res.json(rules.map((rule) => ({
     id: rule.id,
@@ -23,7 +23,7 @@ router.get('/point-rules', async (req, res) => {
 
 router.post('/point-rules', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isAdmin(me)) return res.status(403).json({ error: 'только администратор' })
   const format = String(req.body.format || '').trim()
   const playerRole = String(req.body.playerRole || '').trim()
   const gameResult = String(req.body.gameResult || '').trim()
@@ -48,7 +48,7 @@ router.post('/point-rules', async (req, res) => {
 
 router.patch('/point-rules/:id', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isAdmin(me)) return res.status(403).json({ error: 'только администратор' })
   const id = idParam(req.params.id)
   const rule = id ? await prisma.pointRule.findUnique({ where: { id } }) : null
   if (!rule) return res.status(404).json({ error: 'не найдено' })

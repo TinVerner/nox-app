@@ -12,6 +12,7 @@ model User {
   email        String   @unique @db.VarChar(255)
   passwordHash String   @map("password_hash")
   displayName  String   @map("display_name") @db.VarChar(100)
+  phone        String?  @db.VarChar(30)
   role         String   @default("PLAYER") @db.VarChar(20)
   status       String   @default("ACTIVE") @db.VarChar(20)
   avatarPath   String?  @map("avatar_path")
@@ -116,7 +117,8 @@ model BookingGuest {
   bookingId   Int      @map("booking_id")
   displayName String   @map("display_name") @db.VarChar(100)
   createdAt   DateTime @default(now()) @map("created_at")
-  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  partyPlayers  PartyPlayer[]
 
   @@index([bookingId])
   @@map("booking_guests")
@@ -127,6 +129,7 @@ model Party {
   gameNightId Int       @map("game_night_id")
   partyNumber Int       @map("party_number")
   status      String    @default("DRAFT") @db.VarChar(20)
+  winningSide String?   @map("winning_side") @db.VarChar(20)
   createdBy   Int       @map("created_by")
   createdAt   DateTime  @default(now()) @map("created_at")
   finalizedAt DateTime? @map("finalized_at")
@@ -155,6 +158,7 @@ model PartyPlayer {
   id               Int      @id @default(autoincrement())
   partyId          Int      @map("party_id")
   userId           Int?     @map("user_id")
+  bookingGuestId   Int?     @map("booking_guest_id")
   playerName       String   @map("player_name") @db.VarChar(100)
   playerRole       String   @map("player_role") @db.VarChar(50)
   gameResult       String   @map("game_result") @db.VarChar(30)
@@ -164,11 +168,13 @@ model PartyPlayer {
   attendanceStatus String   @default("PRESENT") @map("attendance_status") @db.VarChar(20)
   note             String?
   createdAt        DateTime @default(now()) @map("created_at")
-  party            Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
-  user             User?    @relation(fields: [userId], references: [id])
+  party            Party         @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  user             User?         @relation(fields: [userId], references: [id])
+  guest            BookingGuest? @relation(fields: [bookingGuestId], references: [id], onDelete: SetNull)
 
   @@index([partyId])
   @@index([userId])
+  @@index([bookingGuestId])
   @@map("party_players")
 }
 

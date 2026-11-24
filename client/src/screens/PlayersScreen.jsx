@@ -41,28 +41,11 @@ export default function PlayersScreen({ onOpen }) {
             <article key={row.id} className="member-card">
               <button type="button" className="btn-ghost btn-s" onClick={() => onOpen(row.id)}>{row.nick}</button>
               <p>{ROLE[row.role] || row.role}{rankLabel(row.rank) ? ` · ${rankLabel(row.rank)}` : ''}</p>
-              <select
-                value={row.rank || ''}
-                onChange={async (event) => {
-                  const rank = event.target.value
-                  // пустой пункт снимает ранг, новый ранг приходит заявкой игрока
-                  if (rank) return
-                  const res = await apiFetch('/api/members/' + row.id + '/rank', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rank }),
-                  })
-                  if (!res.ok) return
-                  const updated = await res.json()
-                  setRows((list) => list.map((item) => (item.id === row.id ? { ...item, rank: updated.rank } : item)))
-                }}
-              >
-                <option value="">без ранга</option>
+              <select value={row.rank || ''} onChange={() => {}}>
                 {RANKS.map((rank) => (
                   <option key={rank.id} value={rank.id}>{rank.label}</option>
                 ))}
               </select>
-              <p className="muted">пустой пункт снимает ранг</p>
               {row.rating ? (
                 <p>{row.rating.points} очков, игр {row.rating.games}</p>
               ) : (

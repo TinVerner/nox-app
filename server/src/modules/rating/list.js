@@ -11,16 +11,18 @@ export async function ratingList() {
   const ids = players.map((player) => player.id)
   const played = ids.length
     ? await prisma.partyPlayer.findMany({
-      where: { OR: [{ userId: { in: ids } }, { playerName: { in: players.map((player) => player.displayName) } }] },
-      select: { userId: true, playerName: true, basePoints: true, extraPoints: true, penaltyPoints: true },
+      where: {
+        userId: { in: ids },
+        attendanceStatus: { not: 'SKIPPED' },
+        party: { status: { in: ['PUBLISHED', 'DONE'] } },
+      },
+      select: { userId: true, playerName: true, basePoints: true, extraPoints: true, penaltyPoints: true, attendanceStatus: true },
     })
     : []
   const codes = await rankCodes(ids)
   const stats = new Map(ids.map((id) => [id, { points: 0, games: 0 }]))
   for (const row of played) {
-    const player = row.userId
-      ? players.find((item) => item.id === row.userId)
-      : players.find((item) => item.displayName === row.playerName)
+    const player = players.find((item) => item.id === row.userId)
     if (!player) continue
     const bucket = stats.get(player.id)
     bucket.points += scoreOf(row)
