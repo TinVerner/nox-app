@@ -1,0 +1,173 @@
+.played-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.played-card {
+  background: linear-gradient(135deg, rgba(201, 168, 76, 0.06), transparent 42%), var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.played-card--open {
+  border-color: rgba(201, 168, 76, 0.35);
+}
+
+.played-card__head {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 16px 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.played-card__when {
+  display: flex;
+  flex-direction: column;
+  color: var(--accent);
+  font-family: var(--condensed);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.played-card__time {
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.played-card__title {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-family: var(--heading);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.played-card__chev {
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 28px;
+  line-height: 1;
+  min-width: 1.2em;
+  text-align: center;
+}
+
+.played-card__body {
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--line);
+  animation: played-reveal 180ms ease-out;
+}
+
+@keyframes played-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.played-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 14px;
+}
+
+.played-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.played-parties {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.played-party__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.played-party__head h3 {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.played-party__side {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.played-players {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.played-players li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px 16px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.played-players__nick {
+  font-weight: 600;
+}
+
+.played-players__role {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: right;
+}
+
+.played-players__pts {
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-align: right;
+  min-width: 2.5em;
+}
+
+@media (max-width: 900px) {
+  .played-card__head {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .played-card__when {
+    grid-column: 1 / -1;
+  }
+
+  .played-players li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .played-players__role {
+    grid-column: 1;
+    text-align: left;
+  }
+}

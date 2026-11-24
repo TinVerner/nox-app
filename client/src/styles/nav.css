@@ -168,6 +168,81 @@ button.nav-link[aria-current='page'] {
 
 .top-nav__auth .nav-link { color: var(--text); }
 
+.app-main__bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 0 0 20px;
+  min-height: 40px;
+}
+
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  min-height: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.profile-chip:hover {
+  filter: none;
+}
+
+.profile-chip__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #111;
+  font-family: var(--heading);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.profile-chip:hover .profile-chip__avatar {
+  filter: brightness(1.08);
+}
+
+.profile-chip__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-chip__nick {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.profile-chip:hover .profile-chip__nick {
+  color: var(--accent);
+}
+
+.profile-chip__role {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
 .side-nav__foot {
   flex: 0 0 auto;
   margin-top: 0;
@@ -175,12 +250,6 @@ button.nav-link[aria-current='page'] {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-}
-
-.side-nav__nick {
-  margin: 0 0 4px;
-  padding: 0 12px;
-  color: var(--text);
 }
 
 @media (max-width: 900px) {

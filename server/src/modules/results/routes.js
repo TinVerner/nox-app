@@ -5,6 +5,38 @@ import { isHost, meOrNull } from '../auth/session.js'
 import { alignClassicRules, findActivePointRule } from '../point-rules/rules.js'
 import { ROLE_CODES, SIDE_CODES, lineScore, nightSums, parseExtra, round2 } from './calc.js'
 
+function canReadPlayed(user) {
+  return user && (user.role === 'PLAYER' || user.role === 'HOST' || user.role === 'ADMIN')
+}
+
+async function loadPublishedParties(nightId) {
+  return prisma.party.findMany({
+    where: { gameNightId: nightId, status: { in: [...PUBLISHED] } },
+    orderBy: { partyNumber: 'asc' },
+    include: {
+      players: {
+        orderBy: { id: 'asc' },
+        include: {
+          user: { select: { id: true, displayName: true } },
+          guest: true,
+        },
+      },
+    },
+  })
+}
+
+function publishedDetail(night, parties) {
+  const shown = parties.map(sheetParty)
+  return {
+    night: {
+      ...nightMeta(night),
+      endsAt: night.endsAt,
+    },
+    parties: shown,
+    totals: nightSums(shown),
+  }
+}
+
 const router = Router()
 const PUBLISHED = new Set(['PUBLISHED', 'DONE'])
 const MIN_CONFIRMED = 8
@@ -342,6 +374,55 @@ async function writeSheet(night, prepared, userId, publish, confirmedIds) {
   })
 }
 
+router.get('/played', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me) return res.status(401).json({ error: 'сначала войди' })
+  if (!canReadPlayed(me)) return res.status(403).json({ error: 'нет доступа' })
+  const nights = await prisma.gameNight.findMany({
+    where: {
+      status: { not: 'CANCELLED' },
+      parties: { some: { status: { in: [...PUBLISHED] } } },
+    },
+    orderBy: { startsAt: 'desc' },
+    include: {
+      parties: {
+        where: { status: { in: [...PUBLISHED] } },
+        select: { id: true, finalizedAt: true },
+      },
+    },
+  })
+  res.json(nights.map((night) => {
+    let publishedAt = null
+    for (const party of night.parties) {
+      if (!party.finalizedAt) continue
+      if (!publishedAt || party.finalizedAt.getTime() > publishedAt.getTime()) {
+        publishedAt = party.finalizedAt
+      }
+    }
+    return {
+      id: night.id,
+      title: night.title,
+      format: night.format,
+      startsAt: night.startsAt,
+      endsAt: night.endsAt,
+      partyCount: night.parties.length,
+      publishedAt,
+    }
+  }))
+})
+
+router.get('/played/:id', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me) return res.status(401).json({ error: 'сначала войди' })
+  if (!canReadPlayed(me)) return res.status(403).json({ error: 'нет доступа' })
+  const id = idParam(req.params.id)
+  const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
+  if (!night || night.status === 'CANCELLED') return res.status(404).json({ error: 'вечер не найден' })
+  const parties = await loadPublishedParties(night.id)
+  if (!parties.length) return res.status(404).json({ error: 'результаты не опубликованы' })
+  res.json(publishedDetail(night, parties))
+})
+
 router.get('/games/:id/results', async (req, res) => {
   const me = await meOrNull(req)
   if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
@@ -366,6 +447,47 @@ router.post('/games/:id/results', async (req, res) => {
     if (error.status) return res.status(error.status).json({ error: error.message })
     throw error
   }
+  res.json(await readSheet(night))
+})
+
+router.delete('/games/:id/parties/:partyId', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
+  const nightId = idParam(req.params.id)
+  const partyId = idParam(req.params.partyId)
+  const night = nightId ? await prisma.gameNight.findUnique({ where: { id: nightId } }) : null
+  if (!night) return res.status(404).json({ error: 'игра не найдена' })
+  if (!nightStarted(night)) return res.status(400).json({ error: 'Вечер ещё не начался' })
+  const roster = await confirmedRoster(night.id)
+  const confirmedIds = new Set(roster.map((person) => person.userId))
+  if (confirmedIds.size < MIN_CONFIRMED) {
+    return res.status(400).json({ error: 'Вечер не состоялся: подтверждено меньше 8 игроков' })
+  }
+  const party = partyId
+    ? await prisma.party.findFirst({
+      where: { id: partyId, gameNightId: night.id },
+      include: { players: true },
+    })
+    : null
+  if (!party) return res.status(404).json({ error: 'партия не найдена' })
+  if (!partyIsEditable(party, confirmedIds)) {
+    return res.status(409).json({ error: 'эту партию нельзя удалить' })
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.partyPlayer.deleteMany({ where: { partyId: party.id } })
+    await tx.party.delete({ where: { id: party.id } })
+    const left = await tx.party.findMany({
+      where: { gameNightId: night.id },
+      orderBy: { partyNumber: 'asc' },
+    })
+    let number = 1
+    for (const row of left) {
+      if (row.partyNumber !== number) {
+        await tx.party.update({ where: { id: row.id }, data: { partyNumber: number } })
+      }
+      number += 1
+    }
+  })
   res.json(await readSheet(night))
 })
 

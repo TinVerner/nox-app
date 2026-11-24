@@ -81,7 +81,8 @@ export default function ProfileScreen({ me, onAccount }) {
       setNick(data.nick || '')
       setLogin(data.login || data.email || '')
       onAccount?.(data)
-      setAccountNote('Сохранено')
+      setPasswordNote('')
+      setAccountNote('Изменения сохранены')
     } catch {
       setAccountError('не вышло')
     } finally {
@@ -125,7 +126,8 @@ export default function ProfileScreen({ me, onAccount }) {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      setPasswordNote('Пароль изменён')
+      setAccountNote('')
+      setPasswordNote('Пароль обновлён')
     } catch {
       setPasswordError('не вышло')
     } finally {
@@ -134,49 +136,89 @@ export default function ProfileScreen({ me, onAccount }) {
   }
 
   return (
-    <section className="screen">
-      <p className="eyebrow">Профиль</p>
-      <h1>Профиль</h1>
+    <section className="screen profile-screen">
+      <header className="profile-head">
+        <div className="profile-head__titles">
+          <p className="eyebrow">Личный кабинет</p>
+          <h1>Профиль</h1>
+          {accountNote || passwordNote ? (
+            <p className="profile-head__note status-ok">{accountNote || passwordNote}</p>
+          ) : null}
+        </div>
+      </header>
+
       <div className="profile-grid">
-        <form className="stack profile-form" onSubmit={saveAccount}>
-          <h2 className="profile-form__title">Аккаунт</h2>
-          <label>
-            Телефон
-            <input value={phone} onChange={(event) => { setAccountError(''); setAccountNote(''); setPhone(event.target.value) }} />
-          </label>
-          <label>
-            Email
-            <input type="email" value={email} onChange={(event) => changeEmail(event.target.value)} required />
-          </label>
-          <label>
-            Ник
-            <input value={nick} onChange={(event) => { setAccountError(''); setAccountNote(''); setNick(event.target.value) }} required />
-          </label>
-          <label>
-            Логин
-            <input type="email" value={login} onChange={(event) => changeEmail(event.target.value)} required />
-          </label>
-          {accountError ? <p className="error">{accountError}</p> : null}
-          {accountNote ? <p className="muted">{accountNote}</p> : null}
-          <button type="submit" className="btn-primary" disabled={saving}>Сохранить</button>
+        <form className="profile-card" onSubmit={saveAccount}>
+          <div className="profile-card__header">
+            <h2 className="profile-card__title">Аккаунт</h2>
+            <p className="profile-card__subtitle">Контактные данные и имя в клубе</p>
+          </div>
+          <div className="profile-card__fields">
+            <label>
+              Телефон
+              <input
+                value={phone}
+                placeholder="+375 ___ __ __"
+                onChange={(event) => { setAccountError(''); setAccountNote(''); setPhone(event.target.value) }}
+              />
+            </label>
+            <label>
+              Email
+              <input type="email" value={email} onChange={(event) => changeEmail(event.target.value)} required />
+            </label>
+            <label>
+              Ник
+              <input value={nick} onChange={(event) => { setAccountError(''); setAccountNote(''); setNick(event.target.value) }} required />
+            </label>
+            <label>
+              Логин
+              <input type="email" value={login} onChange={(event) => changeEmail(event.target.value)} required />
+            </label>
+          </div>
+          {accountError ? <p className="error profile-card__msg">{accountError}</p> : null}
+          <div className="profile-card__footer">
+            <button type="submit" className="btn-primary" disabled={saving}>Сохранить изменения</button>
+          </div>
         </form>
-        <form className="stack profile-form" onSubmit={savePassword}>
-          <h2 className="profile-form__title">Смена пароля</h2>
-          <label>
-            Текущий пароль
-            <input type="password" value={currentPassword} onChange={(event) => { setPasswordError(''); setPasswordNote(''); setCurrentPassword(event.target.value) }} />
-          </label>
-          <label>
-            Новый пароль
-            <input type="password" value={newPassword} onChange={(event) => { setPasswordError(''); setPasswordNote(''); setNewPassword(event.target.value) }} />
-          </label>
-          <label>
-            Повторите пароль
-            <input type="password" value={confirmPassword} onChange={(event) => { setPasswordError(''); setPasswordNote(''); setConfirmPassword(event.target.value) }} />
-          </label>
-          {passwordError ? <p className="error">{passwordError}</p> : null}
-          {passwordNote ? <p className="muted">{passwordNote}</p> : null}
-          <button type="submit" className="btn-primary" disabled={changing}>Сменить пароль</button>
+
+        <form className="profile-card" onSubmit={savePassword}>
+          <div className="profile-card__header">
+            <h2 className="profile-card__title">Смена пароля</h2>
+            <p className="profile-card__subtitle">Подтвердите изменение текущим паролем</p>
+          </div>
+          <div className="profile-card__fields">
+            <label>
+              Текущий пароль
+              <input
+                type="password"
+                value={currentPassword}
+                placeholder="Введите текущий пароль"
+                onChange={(event) => { setPasswordError(''); setPasswordNote(''); setCurrentPassword(event.target.value) }}
+              />
+            </label>
+            <label>
+              Новый пароль
+              <input
+                type="password"
+                value={newPassword}
+                placeholder="Введите новый пароль"
+                onChange={(event) => { setPasswordError(''); setPasswordNote(''); setNewPassword(event.target.value) }}
+              />
+            </label>
+            <label>
+              Повторите пароль
+              <input
+                type="password"
+                value={confirmPassword}
+                placeholder="Повторите новый пароль"
+                onChange={(event) => { setPasswordError(''); setPasswordNote(''); setConfirmPassword(event.target.value) }}
+              />
+            </label>
+          </div>
+          {passwordError ? <p className="error profile-card__msg">{passwordError}</p> : null}
+          <div className="profile-card__footer">
+            <button type="submit" className="btn-ghost" disabled={changing}>Сменить пароль</button>
+          </div>
         </form>
       </div>
     </section>

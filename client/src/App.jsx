@@ -4,6 +4,7 @@ import { useSession } from './hooks/useSession'
 import { useGamesSocket } from './hooks/useGamesSocket'
 import TopNav from './components/TopNav'
 import SideNav from './components/SideNav'
+import ProfileChip from './components/ProfileChip'
 import HomeScreen from './screens/HomeScreen'
 import GamesScreen from './screens/GamesScreen'
 import RatingScreen from './screens/RatingScreen'
@@ -17,8 +18,8 @@ import PlayersScreen from './screens/PlayersScreen'
 import BookingsScreen from './screens/BookingsScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import ResultsScreen from './screens/ResultsScreen'
+import PlayedScreen from './screens/PlayedScreen'
 import SeasonsScreen from './screens/SeasonsScreen'
-import OverviewScreen from './screens/OverviewScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
 import SanctionsScreen from './screens/SanctionsScreen'
 import PointRulesScreen from './screens/PointRulesScreen'
@@ -32,7 +33,7 @@ import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
-  'bookings', 'profile', 'results', 'seasons', 'overview', 'login', 'register',
+  'bookings', 'profile', 'results', 'played', 'seasons', 'overview', 'admin', 'login', 'register',
   'sanctions', 'points', 'notices', 'ranks', 'about', 'catalog', 'events',
   'excel',
 ])
@@ -90,7 +91,7 @@ function App() {
 
   function roleHome() {
     if (!me) return 'home'
-    if (me.role === 'ADMIN') return 'overview'
+    if (me.role === 'ADMIN') return 'users'
     return 'games'
   }
 
@@ -124,9 +125,16 @@ function App() {
     if (!me) return
     setScreen((current) => {
       if (current !== 'home') return current
-      return me.role === 'ADMIN' ? 'overview' : 'games'
+      return me.role === 'ADMIN' ? 'users' : 'games'
     })
   }, [me])
+
+  useEffect(() => {
+    if (screen !== 'overview' && screen !== 'admin') return
+    if (me?.role === 'ADMIN') openScreen('users')
+    else if (me) openScreen('games')
+    else openScreen('home')
+  }, [screen, me])
 
   useEffect(() => {
     if (screen !== 'news') return
@@ -165,7 +173,7 @@ function App() {
         return
       }
       setMe(data)
-      go(data.role === 'ADMIN' ? 'overview' : 'games')
+      go(data.role === 'ADMIN' ? 'users' : 'games')
     } finally {
       authLock.current = false
       setAuthBusy(false)
@@ -248,6 +256,14 @@ function App() {
     return { ok: true }
   }
 
+  async function deleteNight(id) {
+    const res = await apiFetch('/api/games/' + id, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: data.error || 'не вышло' }
+    setGames((list) => (list || []).filter((game) => Number(game.id) !== Number(id)))
+    return { ok: true }
+  }
+
   async function updateGame(id, payload) {
     const res = await apiFetch('/api/games/' + id, {
       method: 'PATCH',
@@ -270,7 +286,6 @@ function App() {
       ) : (
         <SideNav
           role={shell}
-          nick={me?.nick}
           screen={screen === 'member' ? memberBack : screen}
           setScreen={go}
           logout={logout}
@@ -278,6 +293,11 @@ function App() {
       )}
 
       <main className="app-main">
+        {me ? (
+          <div className="app-main__bar">
+            <ProfileChip nick={me.nick} role={me.role} onOpen={() => go('profile')} />
+          </div>
+        ) : null}
         {notice ? <p className="notice" role="status">{notice}</p> : null}
         {!KNOWN_SCREENS.has(screen) && (
           <NotFoundScreen
@@ -298,6 +318,7 @@ function App() {
             onCreate={createGame}
             onUpdate={updateGame}
             onCancelNight={cancelNight}
+            onDeleteNight={deleteNight}
             onLogin={() => go('login')}
             onResults={(game) => { setResultsNightId(game.id); go('results') }}
           />
@@ -323,9 +344,15 @@ function App() {
         )}
         {screen === 'bookings' && <BookingsScreen />}
         {screen === 'profile' && me && <ProfileScreen me={me} onAccount={setMe} />}
-        {screen === 'results' && shell === 'host' && <ResultsScreen gameId={resultsNightId} onBack={() => go('games')} />}
+        {screen === 'results' && shell === 'host' && (
+          <ResultsScreen
+            gameId={resultsNightId}
+            onBack={() => go('games')}
+            onPublished={() => go('games')}
+          />
+        )}
+        {screen === 'played' && me && (shell === 'host' || shell === 'player') && <PlayedScreen />}
         {screen === 'seasons' && shell === 'host' && <SeasonsScreen />}
-        {screen === 'overview' && shell === 'admin' && <OverviewScreen setScreen={go} />}
         {screen === 'sanctions' && shell === 'admin' && <SanctionsScreen />}
         {screen === 'excel' && shell === 'admin' && <ExcelScreen />}
         {screen === 'points' && shell === 'host' && <PointRulesScreen />}

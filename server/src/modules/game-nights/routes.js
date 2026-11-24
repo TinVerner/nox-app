@@ -137,4 +137,34 @@ router.post('/games/:id/cancel', async (req, res) => {
   res.json(nightJson(updated, taken.get(id) || 0))
 })
 
+/** Hard-delete night + parties/bookings so it leaves schedule, Сыгранные and rating. */
+router.delete('/games/:id', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
+  const id = idParam(req.params.id)
+  const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
+  if (!night) return res.status(404).json({ error: 'игра не найдена' })
+  const start = night.startsAt instanceof Date ? night.startsAt.getTime() : new Date(night.startsAt).getTime()
+  const started = !Number.isNaN(start) && start <= Date.now()
+  if (!started && night.status !== 'CANCELLED') {
+    return res.status(409).json({ error: 'сначала отмените будущий вечер или дождитесь начала' })
+  }
+  await prisma.$transaction(async (tx) => {
+    const parties = await tx.party.findMany({ where: { gameNightId: id }, select: { id: true } })
+    const partyIds = parties.map((party) => party.id)
+    if (partyIds.length) {
+      await tx.partyPlayer.deleteMany({ where: { partyId: { in: partyIds } } })
+      await tx.party.deleteMany({ where: { id: { in: partyIds } } })
+    }
+    const bookings = await tx.booking.findMany({ where: { gameNightId: id }, select: { id: true } })
+    const bookingIds = bookings.map((booking) => booking.id)
+    if (bookingIds.length) {
+      await tx.bookingGuest.deleteMany({ where: { bookingId: { in: bookingIds } } })
+      await tx.booking.deleteMany({ where: { id: { in: bookingIds } } })
+    }
+    await tx.gameNight.delete({ where: { id } })
+  })
+  res.json({ ok: true, id })
+})
+
 export default router

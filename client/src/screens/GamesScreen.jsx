@@ -124,6 +124,20 @@ function canOpenResults(game, now = Date.now()) {
   return !Number.isNaN(start) && start <= now
 }
 
+/** Удалить вечер целиком — после старта / для отменённых (каскад + рейтинг) */
+function canDeleteNight(game, now = Date.now()) {
+  if (!game) return false
+  if (game.status === 'CANCELLED') return true
+  const start = new Date(game.startsAt).getTime()
+  return !Number.isNaN(start) && start <= now
+}
+
+function resultsButtonLabel(game) {
+  if (game?.resultsStatus === 'PUBLISHED') return 'Результаты'
+  if (game?.resultsStatus === 'DRAFT') return 'Результаты'
+  return 'Результаты'
+}
+
 function bookLabel(game) {
   return (game.taken ?? 0) >= game.seats ? 'Лист ожидания' : 'Записаться'
 }
@@ -244,7 +258,7 @@ function GameModal({ game, onClose, onSave }) {
   )
 }
 
-export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onLogin, onResults }) {
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onDeleteNight, onLogin, onResults }) {
   const [kindFilter, setKindFilter] = useState('ALL')
   const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
@@ -260,6 +274,10 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [nightCanceling, setNightCanceling] = useState(false)
   const [nightCancelError, setNightCancelError] = useState('')
   const [nightCancelDone, setNightCancelDone] = useState(false)
+  const [nightDelete, setNightDelete] = useState(null)
+  const [nightDeleting, setNightDeleting] = useState(false)
+  const [nightDeleteError, setNightDeleteError] = useState('')
+  const [nightDeleteDone, setNightDeleteDone] = useState(false)
   const staff = me?.role === 'HOST'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
@@ -343,6 +361,26 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
       setNightCancelDone(true)
     } finally {
       setNightCanceling(false)
+    }
+  }
+
+  async function confirmNightDelete() {
+    if (nightDeleting || !nightDelete || !onDeleteNight) return
+    if (!canDeleteNight(nightDelete)) {
+      setNightDeleteError('можно удалить только прошедший или отменённый вечер')
+      return
+    }
+    setNightDeleting(true)
+    setNightDeleteError('')
+    try {
+      const result = await onDeleteNight(nightDelete.id)
+      if (!result?.ok) {
+        setNightDeleteError(result?.error || 'не вышло')
+        return
+      }
+      setNightDeleteDone(true)
+    } finally {
+      setNightDeleting(false)
     }
   }
 
@@ -441,7 +479,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               )}
               {staff && canOpenResults(game) && (
                 <button type="button" className="btn-primary btn-s" onClick={() => onResults(game)}>
-                  Результаты
+                  {resultsButtonLabel(game)}
                 </button>
               )}
               {staff && canCancelNight(game) && (
@@ -451,6 +489,15 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
                   onClick={() => { setNightCancelError(''); setNightCancelDone(false); setNightCancel(game) }}
                 >
                   Отменить
+                </button>
+              )}
+              {staff && canDeleteNight(game) && (
+                <button
+                  type="button"
+                  className="btn-danger btn-s"
+                  onClick={() => { setNightDeleteError(''); setNightDeleteDone(false); setNightDelete(game) }}
+                >
+                  Удалить
                 </button>
               )}
               {!staff && isBooked(bookedIds, game.id) ? (
@@ -535,6 +582,30 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               <div className="modal-actions">
                 <button type="button" className="btn-ghost" onClick={() => setNightCancel(null)} disabled={nightCanceling}>Нет</button>
                 <button type="button" className="btn-primary" onClick={confirmNightCancel} disabled={nightCanceling}>Отменить</button>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
+      {nightDelete && (
+        <Modal title={nightDelete.title} eyebrow="Удаление вечера" onClose={() => { if (!nightDeleting) setNightDelete(null) }}>
+          {nightDeleteDone ? (
+            <>
+              <p>Вечер удалён. Он исчез из расписания, сыгранных и рейтинга.</p>
+              <div className="modal-actions">
+                <button type="button" className="btn-primary" onClick={() => setNightDelete(null)}>Ок</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>Удалить вечер целиком? Пропадут записи, партии и вклад в рейтинг. Это нельзя отменить.</p>
+              {nightDelete.resultsStatus === 'PUBLISHED' ? (
+                <p className="muted">У этого вечера уже есть опубликованные результаты.</p>
+              ) : null}
+              {nightDeleteError ? <p className="error">{nightDeleteError}</p> : null}
+              <div className="modal-actions">
+                <button type="button" className="btn-ghost" onClick={() => setNightDelete(null)} disabled={nightDeleting}>Нет</button>
+                <button type="button" className="btn-danger" onClick={confirmNightDelete} disabled={nightDeleting}>Удалить</button>
               </div>
             </>
           )}

@@ -3,6 +3,7 @@ const MENUS = {
     label: 'ИГРОК',
     items: [
       { screen: 'games', label: 'Расписание' },
+      { screen: 'played', label: 'Сыгранные' },
       { screen: 'events', label: 'Мероприятия' },
       { screen: 'bookings', label: 'Мои записи' },
       { screen: 'profile', label: 'Профиль' },
@@ -18,6 +19,7 @@ const MENUS = {
     label: 'ХОСТ',
     items: [
       { screen: 'games', label: 'Вечера' },
+      { screen: 'played', label: 'Сыгранные' },
       { screen: 'events', label: 'Мероприятия' },
       { screen: 'seasons', label: 'Сезоны' },
       { screen: 'players', label: 'Игроки' },
@@ -33,7 +35,6 @@ const MENUS = {
   admin: {
     label: 'АДМИНИСТРАТОР',
     items: [
-      { screen: 'overview', label: 'Обзор' },
       { screen: 'users', label: 'Пользователи' },
       { screen: 'sanctions', label: 'Санкции' },
       { screen: 'excel', label: 'Excel' },
@@ -45,7 +46,7 @@ const MENUS = {
   },
 }
 
-export default function SideNav({ role, screen, setScreen, logout, nick }) {
+export default function SideNav({ role, screen, setScreen, logout }) {
   const menu = MENUS[role] || MENUS.player
 
   return (
@@ -67,7 +68,6 @@ export default function SideNav({ role, screen, setScreen, logout, nick }) {
         ))}
       </nav>
       <div className="side-nav__foot">
-        {nick ? <p className="side-nav__nick">{nick}</p> : null}
         <button className="nav-link" onClick={logout}>Выйти</button>
       </div>
     </aside>

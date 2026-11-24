@@ -9,13 +9,15 @@ export async function ratingList(seasonId = null) {
     select: { id: true, displayName: true },
   })
   const ids = players.map((player) => player.id)
+  const nightFilter = {
+    status: { not: 'CANCELLED' },
+    ...(seasonId ? { seasonId: Number(seasonId) } : {}),
+  }
   const partyFilter = {
     attendanceStatus: { not: 'SKIPPED' },
     party: {
       status: { in: ['PUBLISHED', 'DONE'] },
-      ...(seasonId
-        ? { night: { seasonId: Number(seasonId) } }
-        : {}),
+      night: nightFilter,
     },
     ...(ids.length ? { userId: { in: ids } } : { userId: -1 }),
   }

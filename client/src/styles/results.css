@@ -29,6 +29,19 @@
 .result-side select,
 .result-cell select,
 .result-cell input { min-height: 36px; padding: 6px 8px; border-radius: 10px; }
+.result-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.result-extra-label {
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .result-cell .btn-s,
 .result-table thead .btn-s { align-self: flex-start; min-height: 28px; padding: 2px 8px; }
 .result-total { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -49,4 +62,67 @@
   align-items: baseline;
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.night-rank {
+  margin-top: 4px;
+}
+
+.night-rank__title {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.night-rank__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.night-rank__table th,
+.night-rank__table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.night-rank__table thead th {
+  color: var(--muted);
+  font-family: var(--condensed);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.night-rank__place {
+  width: 4.5em;
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.night-rank__nick {
+  font-weight: 600;
+}
+
+.night-rank__pts {
+  width: 5em;
+  text-align: right;
+  color: var(--accent);
+  font-family: var(--condensed);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.night-rank__table thead th:last-child {
+  text-align: right;
 }

@@ -13,6 +13,9 @@ const SIDES = [
   { id: 'MAFIA', label: 'мафия' },
 ]
 
+const ROLE_LABEL = Object.fromEntries(ROLES.map((role) => [role.id, role.label]))
+const SIDE_LABEL = Object.fromEntries(SIDES.map((side) => [side.id, side.label]))
+
 function show(value) {
   const number = Number(value)
   return Number.isFinite(number) ? String(number) : '0'
@@ -71,27 +74,51 @@ function cellScore(player) {
   return { base: round2(player.basePoints), total: round2(player.total) }
 }
 
-export default function ResultsScreen({ gameId, onBack }) {
+function partiesPublished(list) {
+  if (!list?.length) return false
+  return list.every((party) => party.status === 'PUBLISHED' || party.status === 'DONE')
+}
+
+function rankedTotals(list) {
+  return [...(list || [])]
+    .sort((a, b) => Number(b.total) - Number(a.total))
+    .map((row, index) => ({ ...row, place: index + 1 }))
+}
+
+function applySheet(data, setSheet, setParties) {
+  setSheet(data)
+  const booked = new Set((data.roster || []).filter((person) => person.kind === 'PLAYER' && person.userId).map((person) => person.userId))
+  const canEdit = data.started === true && data.held === true
+  setParties(canEdit ? (data.parties || []).map((party) => ({
+    ...party,
+    players: (party.players || []).filter((player) => player.userId && booked.has(player.userId) && player.kind !== 'GUEST'),
+  })) : [])
+}
+
+export default function ResultsScreen({ gameId, onBack, onPublished }) {
   const [sheet, setSheet] = useState(null)
   const [parties, setParties] = useState([])
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [partiesOpen, setPartiesOpen] = useState(false)
 
   useEffect(() => {
     if (!gameId) return undefined
     let cancelled = false
+    setEditing(false)
+    setPartiesOpen(false)
+    setError('')
+    setNote('')
     apiFetch('/api/games/' + gameId + '/results')
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (cancelled || !data) return
-        setSheet(data)
-        const booked = new Set((data.roster || []).filter((person) => person.kind === 'PLAYER' && person.userId).map((person) => person.userId))
-        const canEdit = data.started === true && data.held === true
-        setParties(canEdit ? (data.parties || []).map((party) => ({
-          ...party,
-          players: (party.players || []).filter((player) => player.userId && booked.has(player.userId) && player.kind !== 'GUEST'),
-        })) : [])
+        applySheet(data, setSheet, setParties)
+        const held = data.started === true && data.held === true
+        const published = held && data.persisted && partiesPublished(data.parties)
+        setEditing(!published)
       })
       .catch(() => {
         if (!cancelled) setError('не вышло')
@@ -108,6 +135,8 @@ export default function ResultsScreen({ gameId, onBack }) {
   const failed = started && sheet?.held === false
   const held = started && sheet?.held === true
   const rows = held ? rosterRows : []
+  const published = held && sheet?.persisted && partiesPublished(parties)
+  const viewOnly = held && published && !editing
 
   function updateParty(index, patch) {
     setParties((list) => list.map((party, partyIndex) => (partyIndex === index ? { ...party, ...patch } : party)))
@@ -134,8 +163,32 @@ export default function ResultsScreen({ gameId, onBack }) {
     }])
   }
 
-  function removeParty(index) {
-    setParties((list) => list.filter((_, partyIndex) => partyIndex !== index))
+  async function removeParty(index) {
+    const party = parties[index]
+    if (!party) return
+    if (!party.id) {
+      setParties((list) => list.filter((_, partyIndex) => partyIndex !== index))
+      return
+    }
+    if (!window.confirm(`Удалить партию ${index + 1}? Очки игроков из неё пропадут из рейтинга после удаления.`)) return
+    setBusy(true)
+    setError('')
+    setNote('')
+    try {
+      const response = await apiFetch('/api/games/' + gameId + '/parties/' + party.id, { method: 'DELETE' })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setError(data.error || 'не вышло')
+        return
+      }
+      applySheet(data, setSheet, setParties)
+      setNote('Партия удалена')
+      if (!partiesPublished(data.parties || [])) setEditing(true)
+    } catch {
+      setError('не вышло')
+    } finally {
+      setBusy(false)
+    }
   }
 
   function addToParty(partyIndex, row) {
@@ -191,14 +244,15 @@ export default function ResultsScreen({ gameId, onBack }) {
         setError(data.error || 'не вышло')
         return
       }
-      setSheet(data)
-      const booked = new Set((data.roster || []).filter((person) => person.kind === 'PLAYER' && person.userId).map((person) => person.userId))
-      const canEdit = data.started === true && data.held === true
-      setParties(canEdit ? (data.parties || []).map((party) => ({
-        ...party,
-        players: (party.players || []).filter((player) => player.userId && booked.has(player.userId) && player.kind !== 'GUEST'),
-      })) : [])
-      setNote(mode === 'publish' ? 'Результаты опубликованы' : 'Черновик сохранён')
+      applySheet(data, setSheet, setParties)
+      if (mode === 'publish') {
+        setNote('Результаты опубликованы')
+        setEditing(false)
+        onPublished?.()
+        return
+      }
+      setNote('Черновик сохранён')
+      setEditing(true)
     } catch {
       setError('не вышло')
     } finally {
@@ -231,7 +285,72 @@ export default function ResultsScreen({ gameId, onBack }) {
           <p>Подтверждено: {confirmedCount} из {MIN_PLAYERS}</p>
         </div>
       ) : null}
-      {held ? (
+      {viewOnly ? (
+        <div className="stack">
+          <div className="result-actions">
+            <button type="button" className="btn-primary" onClick={() => { setEditing(true); setNote(''); setPartiesOpen(false) }}>Изменить</button>
+            <button type="button" className="btn-ghost" onClick={onBack}>К вечерам</button>
+          </div>
+          <section className="night-rank">
+            <h2 className="night-rank__title">Рейтинг вечера</h2>
+            <table className="night-rank__table">
+              <thead>
+                <tr>
+                  <th scope="col">Место</th>
+                  <th scope="col">Игрок</th>
+                  <th scope="col">Очки</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rankedTotals(sheet?.totals).map((row) => (
+                  <tr key={row.key || row.label}>
+                    <td className="night-rank__place">{row.place}</td>
+                    <td className="night-rank__nick">{row.label}</td>
+                    <td className="night-rank__pts">{show(row.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!sheet?.totals?.length ? <p className="muted">нет очков за вечер</p> : null}
+          </section>
+          <div className="result-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              aria-expanded={partiesOpen}
+              onClick={() => setPartiesOpen((open) => !open)}
+            >
+              {partiesOpen ? 'Скрыть' : 'Подробнее'}
+            </button>
+          </div>
+          {partiesOpen ? (
+            <div className="played-detail">
+              {parties.map((party, index) => (
+                <section key={party.id || index} className="played-party">
+                  <header className="played-party__head">
+                    <h3>Партия {index + 1}</h3>
+                    <p className="played-party__side">
+                      победа: {SIDE_LABEL[party.winningSide] || party.winningSide || '—'}
+                    </p>
+                  </header>
+                  <ul className="played-players">
+                    {(party.players || []).map((player) => (
+                      <li key={player.id || `${party.id}-${player.label}`}>
+                        <span className="played-players__nick">{player.label}</span>
+                        <span className="played-players__role">
+                          {player.attendance === 'SKIPPED' ? 'пропустил' : (ROLE_LABEL[player.role] || player.role || '—')}
+                        </span>
+                        <span className="played-players__pts">{show(cellScore(player).total)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {held && editing ? (
       <div className="result-table-wrap">
         <table className="result-table">
           <thead>
@@ -255,7 +374,7 @@ export default function ResultsScreen({ gameId, onBack }) {
               {parties.map((party, index) => (
                 <th key={party.id || `party-${index}`}>
                   <span className="result-party-name">Партия {index + 1}</span>
-                  <button type="button" className="btn-ghost btn-s" onClick={() => removeParty(index)}>Убрать партию</button>
+                  <button type="button" className="btn-ghost btn-s" disabled={busy} onClick={() => removeParty(index)}>Удалить партию</button>
                 </th>
               ))}
               <th>Вечер</th>
@@ -294,15 +413,18 @@ export default function ResultsScreen({ gameId, onBack }) {
                             <option value="SKIPPED">Пропустил</option>
                           </select>
                           {player.attendance === 'SKIPPED' ? null : (
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.25"
-                              aria-label={`Дополнительные очки, ${row.label}, партия ${partyIndex + 1}`}
-                              value={player.extraPoints}
-                              onChange={(event) => updateCell(partyIndex, row.key, { extraPoints: event.target.value })}
-                            />
+                            <label className="result-extra">
+                              <span className="result-extra-label">дополнительные баллы</span>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.25"
+                                aria-label={`Дополнительные баллы, ${row.label}, партия ${partyIndex + 1}`}
+                                value={player.extraPoints}
+                                onChange={(event) => updateCell(partyIndex, row.key, { extraPoints: event.target.value })}
+                              />
+                            </label>
                           )}
                           <p className="muted">база {show(score.base)} · итог {show(score.total)}</p>
                           <button type="button" className="btn-ghost btn-s" onClick={() => removeFromParty(partyIndex, row.key)}>Убрать</button>
@@ -322,11 +444,14 @@ export default function ResultsScreen({ gameId, onBack }) {
         </table>
       </div>
       ) : null}
-      {held ? (
+      {held && editing ? (
       <div className="result-actions">
         <button type="button" className="btn-secondary" onClick={addParty}>Ещё партия</button>
         <button type="button" className="btn-ghost" disabled={busy} onClick={() => save('draft')}>Сохранить черновик</button>
         <button type="button" className="btn-primary" disabled={busy} onClick={() => save('publish')}>Опубликовать результаты</button>
+        {published ? (
+          <button type="button" className="btn-ghost" disabled={busy} onClick={() => setEditing(false)}>Отмена правки</button>
+        ) : null}
       </div>
       ) : null}
       {error ? <p className="error">{error}</p> : null}
