@@ -5,7 +5,9 @@ export default function OverviewScreen({ setScreen }) {
       <h1>Обзор</h1>
       <div className="link-grid">
         <button type="button" className="panel-link" onClick={() => setScreen('users')}>Пользователи</button>
-        <button type="button" className="panel-link" onClick={() => setScreen('members')}>Участники</button>
+        <button type="button" className="panel-link" onClick={() => setScreen('sanctions')}>Санкции</button>
+        <button type="button" className="panel-link" onClick={() => setScreen('excel')}>Excel</button>
+        <button type="button" className="panel-link" onClick={() => setScreen('news')}>Новости</button>
       </div>
     </section>
   )

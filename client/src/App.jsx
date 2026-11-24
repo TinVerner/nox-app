@@ -21,19 +21,20 @@ import SeasonsScreen from './screens/SeasonsScreen'
 import OverviewScreen from './screens/OverviewScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
 import SanctionsScreen from './screens/SanctionsScreen'
-import RulesScreen from './screens/RulesScreen'
 import PointRulesScreen from './screens/PointRulesScreen'
 import NoticesScreen from './screens/NoticesScreen'
 import RanksScreen from './screens/RanksScreen'
 import AboutScreen from './screens/AboutScreen'
 import CatalogScreen from './screens/CatalogScreen'
 import EventsScreen from './screens/EventsScreen'
+import ExcelScreen from './screens/ExcelScreen'
 import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
   'bookings', 'profile', 'results', 'seasons', 'overview', 'login', 'register',
-  'sanctions', 'rules', 'points', 'notices', 'ranks', 'about', 'catalog', 'events',
+  'sanctions', 'points', 'notices', 'ranks', 'about', 'catalog', 'events',
+  'excel',
 ])
 
 function shellFor(user) {
@@ -262,20 +263,6 @@ function App() {
     return true
   }
 
-  async function createNews(payload) {
-    const res = await apiFetch('/api/news', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: payload.title, body: payload.body }),
-    })
-    if (!res.ok) {
-      alert('не вышло')
-      return false
-    }
-    setNews([await res.json(), ...news])
-    return true
-  }
-
   return (
     <div className={shell === 'guest' ? 'app-shell app-shell--guest' : 'app-shell app-shell--side'}>
       {shell === 'guest' ? (
@@ -316,32 +303,39 @@ function App() {
           />
         )}
         {screen === 'rating' && <RatingScreen rating={rating} />}
-        {screen === 'news' && <NewsScreen me={me} news={news} onCreate={createNews} onLogin={() => go('login')} />}
-        {screen === 'users' && <UsersScreen />}
-        {screen === 'members' && (shell === 'host' || shell === 'admin') && (
+        {screen === 'news' && (
+          <NewsScreen
+            me={me}
+            news={news}
+            onDeleted={(id) => setNews((prev) => prev.filter((item) => item.id !== id))}
+            onLogin={() => go('login')}
+          />
+        )}
+        {screen === 'users' && shell === 'admin' && <UsersScreen />}
+        {screen === 'members' && shell === 'host' && (
           <MembersScreen onOpen={(id) => { setMemberId(id); setMemberBack('members'); go('member') }} />
         )}
-        {screen === 'players' && (
+        {screen === 'players' && shell === 'host' && (
           <PlayersScreen onOpen={(id) => { setMemberId(id); setMemberBack('players'); go('member') }} />
         )}
-        {screen === 'member' && (
+        {screen === 'member' && shell === 'host' && (
           <MemberScreen memberId={memberId} onBack={() => go(memberBack)} />
         )}
         {screen === 'bookings' && <BookingsScreen />}
         {screen === 'profile' && me && <ProfileScreen me={me} onAccount={setMe} />}
-        {screen === 'results' && <ResultsScreen gameId={resultsNightId} onBack={() => go('games')} />}
-        {screen === 'seasons' && <SeasonsScreen />}
-        {screen === 'overview' && <OverviewScreen setScreen={go} />}
-        {screen === 'sanctions' && <SanctionsScreen />}
-        {screen === 'rules' && <RulesScreen />}
-        {screen === 'points' && shell === 'admin' && <PointRulesScreen />}
+        {screen === 'results' && shell === 'host' && <ResultsScreen gameId={resultsNightId} onBack={() => go('games')} />}
+        {screen === 'seasons' && shell === 'host' && <SeasonsScreen />}
+        {screen === 'overview' && shell === 'admin' && <OverviewScreen setScreen={go} />}
+        {screen === 'sanctions' && shell === 'admin' && <SanctionsScreen />}
+        {screen === 'excel' && shell === 'admin' && <ExcelScreen />}
+        {screen === 'points' && shell === 'host' && <PointRulesScreen />}
         {screen === 'notices' && <NoticesScreen />}
-        {screen === 'ranks' && <RanksScreen me={me} />}
+        {screen === 'ranks' && me && <RanksScreen me={me} />}
         {screen === 'about' && (
-          <AboutScreen onSchedule={() => go('games')} onBack={() => go(previousScreen.current)} />
+          <AboutScreen onSchedule={() => go('games')} />
         )}
-        {screen === 'catalog' && <CatalogScreen me={me} />}
-        {screen === 'events' && <EventsScreen me={me} />}
+        {screen === 'catalog' && me && <CatalogScreen me={me} />}
+        {screen === 'events' && me && <EventsScreen me={me} />}
         {screen === 'login' && (
           <LoginScreen
             email={email}

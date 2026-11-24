@@ -1,14 +1,14 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
-import { isStaff, meOrNull } from '../auth/session.js'
+import { isHost, meOrNull } from '../auth/session.js'
 import { RANK_LABEL, ensureRanks } from './defs.js'
 
 const router = Router()
 
 router.patch('/members/:id/rank', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   await ensureRanks()
   const id = idParam(req.params.id)
   const user = id ? await prisma.user.findUnique({ where: { id } }) : null
@@ -23,7 +23,7 @@ router.patch('/members/:id/rank', async (req, res) => {
 router.get('/rank-requests', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'сначала войди' })
-  const where = isStaff(me) ? { status: 'PENDING' } : { userId: me.id }
+  const where = isHost(me) ? { status: 'PENDING' } : { userId: me.id }
   const rows = await prisma.userRank.findMany({
     where,
     orderBy: { requestedAt: 'desc' },
@@ -59,7 +59,7 @@ router.post('/rank-requests', async (req, res) => {
 
 router.patch('/rank-requests/:id', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const row = id ? await prisma.userRank.findUnique({ where: { id }, include: { rank: true, user: true } }) : null
   if (!row) return res.status(404).json({ error: 'не найдено' })

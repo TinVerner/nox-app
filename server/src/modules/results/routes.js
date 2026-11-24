@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam, num } from '../../shared/input.js'
-import { isStaff, meOrNull } from '../auth/session.js'
+import { isHost, meOrNull } from '../auth/session.js'
 import { alignClassicRules, findActivePointRule } from '../point-rules/rules.js'
 import { ROLE_CODES, SIDE_CODES, lineScore, nightSums, parseExtra, round2 } from './calc.js'
 
@@ -98,13 +98,43 @@ function blankFromRoster(roster) {
   }
 }
 
+function nightStarted(night, now = Date.now()) {
+  const start = night.startsAt instanceof Date ? night.startsAt.getTime() : new Date(night.startsAt).getTime()
+  return !Number.isNaN(start) && start <= now
+}
+
+function nightMeta(night) {
+  return {
+    id: night.id,
+    title: night.title,
+    format: night.format,
+    startsAt: night.startsAt,
+  }
+}
+
 async function readSheet(night) {
   const roster = await confirmedRoster(night.id)
   const allowed = new Set(roster.map((person) => person.userId))
+  const started = nightStarted(night)
+  // До старта запись ещё открыта — не объявляем вечер несостоявшимся по min-8.
+  if (!started) {
+    return {
+      night: nightMeta(night),
+      persisted: false,
+      started: false,
+      held: null,
+      confirmedCount: roster.length,
+      minimum: MIN_CONFIRMED,
+      roster: [],
+      parties: [],
+      totals: [],
+    }
+  }
   if (roster.length < MIN_CONFIRMED) {
     return {
-      night: { id: night.id, title: night.title, format: night.format },
+      night: nightMeta(night),
       persisted: false,
+      started: true,
       held: false,
       confirmedCount: roster.length,
       minimum: MIN_CONFIRMED,
@@ -129,8 +159,9 @@ async function readSheet(night) {
   const editable = parties.filter((party) => partyIsEditable(party, allowed))
   const shown = editable.length ? editable.map(sheetParty) : [blankFromRoster(roster)]
   return {
-    night: { id: night.id, title: night.title, format: night.format },
+    night: nightMeta(night),
     persisted: editable.length > 0,
+    started: true,
     held: true,
     confirmedCount: roster.length,
     minimum: MIN_CONFIRMED,
@@ -154,6 +185,9 @@ function fail(res, status, error) {
 async function prepare(night, body, publish) {
   const parties = Array.isArray(body?.parties) ? body.parties : null
   if (!parties) return { error: 'нужен список партий', status: 400 }
+  if (!nightStarted(night)) {
+    return { error: 'Вечер ещё не начался', status: 400 }
+  }
   const roster = await confirmedRoster(night.id)
   const confirmedIds = new Set(roster.map((person) => person.userId))
   const userMap = new Map(roster.map((person) => [person.userId, person]))
@@ -310,7 +344,7 @@ async function writeSheet(night, prepared, userId, publish, confirmedIds) {
 
 router.get('/games/:id/results', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
   if (!night) return res.status(404).json({ error: 'игра не найдена' })
@@ -319,7 +353,7 @@ router.get('/games/:id/results', async (req, res) => {
 
 router.post('/games/:id/results', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
   if (!night) return res.status(404).json({ error: 'игра не найдена' })

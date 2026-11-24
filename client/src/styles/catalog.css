@@ -1,12 +1,50 @@
-.catalog-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
 }
 
-.catalog-card h2,
-.catalog-card p { margin: 0; }
+.catalog-tile {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+  min-height: 220px;
+}
 
-.catalog-card input,
-.catalog-card textarea { width: 100%; }
+.catalog-tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.catalog-tile h2,
+.catalog-tile p {
+  margin: 0;
+}
+
+.catalog-tile h2 {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.catalog-tile__body p {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.catalog-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

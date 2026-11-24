@@ -49,8 +49,14 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
+  gap: 8px;
 }
 
 .rank-card h2,
 .rank-card p { margin: 0; }
+
+.rank-card__rank { font-weight: 600; }
+
+.rank-card__status { margin-top: 0; }
+
+.rank-card .user-actions { margin-top: 8px; }

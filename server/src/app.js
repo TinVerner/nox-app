@@ -16,6 +16,7 @@ import sanctionRoutes from './modules/sanctions/routes.js'
 import notificationRoutes from './modules/notifications/routes.js'
 import catalogRoutes from './modules/catalog/routes.js'
 import eventRoutes from './modules/events/routes.js'
+import excelRoutes from './modules/excel/routes.js'
 
 export function createApp() {
   const app = express()
@@ -43,5 +44,6 @@ export function createApp() {
   app.use('/api', notificationRoutes)
   app.use('/api', catalogRoutes)
   app.use('/api', eventRoutes)
+  app.use('/api', excelRoutes)
   return app
 }

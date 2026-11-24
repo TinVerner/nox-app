@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam, num } from '../../shared/input.js'
-import { isStaff, meOrNull } from '../auth/session.js'
+import { isHost, meOrNull } from '../auth/session.js'
 
 const router = Router()
 
@@ -26,14 +26,14 @@ function itemJson(item) {
 router.get('/catalog', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'сначала войди' })
-  const where = isStaff(me) ? {} : { isActive: true }
+  const where = isHost(me) ? {} : { isActive: true }
   const items = await prisma.catalogItem.findMany({ where, orderBy: { name: 'asc' } })
   res.json(items.map(itemJson))
 })
 
 router.post('/catalog', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий или админ' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const name = String(req.body.name || '').trim()
   if (!name) return res.status(400).json({ error: 'нужно название' })
   const cashPrice = priceOrNull(req.body.cashPrice)
@@ -55,7 +55,7 @@ router.post('/catalog', async (req, res) => {
 
 router.patch('/catalog/:id', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий или админ' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const item = id ? await prisma.catalogItem.findUnique({ where: { id } }) : null
   if (!item) return res.status(404).json({ error: 'не найдено' })
@@ -81,6 +81,16 @@ router.patch('/catalog/:id', async (req, res) => {
   if (req.body.active !== undefined) data.isActive = Boolean(req.body.active)
   const updated = await prisma.catalogItem.update({ where: { id }, data })
   res.json(itemJson(updated))
+})
+
+router.delete('/catalog/:id', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
+  const id = idParam(req.params.id)
+  const item = id ? await prisma.catalogItem.findUnique({ where: { id } }) : null
+  if (!item) return res.status(404).json({ error: 'не найдено' })
+  await prisma.catalogItem.delete({ where: { id } })
+  res.json({ ok: true })
 })
 
 router.post('/catalog/:id/buy', async (req, res) => {

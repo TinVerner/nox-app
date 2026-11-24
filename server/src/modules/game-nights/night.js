@@ -11,14 +11,24 @@ export function minskDate(value) {
   return new Date(`${withSeconds}+03:00`)
 }
 
-/** null — можно отменить; иначе текст ошибки для API */
-export function nightCancelBlocked(night, now = Date.now()) {
+/** null — можно править/отменить; иначе текст ошибки для API */
+export function nightManageBlocked(night, now = Date.now()) {
   if (!night) return 'игра не найдена'
   if (night.status === 'CANCELLED') return 'вечер уже отменён'
   if (night.status === 'DONE') return 'вечер уже завершён'
   const start = night.startsAt instanceof Date ? night.startsAt.getTime() : new Date(night.startsAt).getTime()
   if (Number.isNaN(start) || start <= now) return 'вечер уже начался'
   return null
+}
+
+/** null — можно отменить; иначе текст ошибки для API */
+export function nightCancelBlocked(night, now = Date.now()) {
+  return nightManageBlocked(night, now)
+}
+
+/** null — можно править; иначе текст ошибки для API */
+export function nightEditBlocked(night, now = Date.now()) {
+  return nightManageBlocked(night, now)
 }
 
 export function nightJson(night, taken = 0) {
@@ -30,7 +40,6 @@ export function nightJson(night, taken = 0) {
     place: night.description || '',
     description: night.description || '',
     registrationDeadlineAt: night.registrationDeadlineAt,
-    imagePath: night.imagePath || '',
     seats: night.capacity,
     capacity: night.capacity,
     status: night.status,
@@ -50,10 +59,6 @@ export function nightExtras(body) {
   }
   if (body.registrationDeadlineAt !== undefined) {
     data.registrationDeadlineAt = body.registrationDeadlineAt ? minskDate(body.registrationDeadlineAt) : null
-  }
-  if (body.imagePath !== undefined) {
-    const path = String(body.imagePath || '').trim()
-    data.imagePath = path || null
   }
   if (body.endsAt !== undefined) data.endsAt = minskDate(body.endsAt)
   return data

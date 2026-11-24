@@ -87,8 +87,8 @@ export default function ResultsScreen({ gameId, onBack }) {
         if (cancelled || !data) return
         setSheet(data)
         const booked = new Set((data.roster || []).filter((person) => person.kind === 'PLAYER' && person.userId).map((person) => person.userId))
-        const confirmed = Number.isInteger(data.confirmedCount) ? data.confirmedCount : booked.size
-        setParties(confirmed >= MIN_PLAYERS ? (data.parties || []).map((party) => ({
+        const canEdit = data.started === true && data.held === true
+        setParties(canEdit ? (data.parties || []).map((party) => ({
           ...party,
           players: (party.players || []).filter((player) => player.userId && booked.has(player.userId) && player.kind !== 'GUEST'),
         })) : [])
@@ -103,7 +103,10 @@ export default function ResultsScreen({ gameId, onBack }) {
 
   const rosterRows = tableRows(sheet?.roster)
   const confirmedCount = Number.isInteger(sheet?.confirmedCount) ? sheet.confirmedCount : rosterRows.length
-  const held = confirmedCount >= MIN_PLAYERS
+  const started = sheet?.started === true
+  const notStarted = sheet != null && sheet.started === false
+  const failed = started && sheet?.held === false
+  const held = started && sheet?.held === true
   const rows = held ? rosterRows : []
 
   function updateParty(index, patch) {
@@ -190,8 +193,8 @@ export default function ResultsScreen({ gameId, onBack }) {
       }
       setSheet(data)
       const booked = new Set((data.roster || []).filter((person) => person.kind === 'PLAYER' && person.userId).map((person) => person.userId))
-      const confirmed = Number.isInteger(data.confirmedCount) ? data.confirmedCount : booked.size
-      setParties(confirmed >= MIN_PLAYERS ? (data.parties || []).map((party) => ({
+      const canEdit = data.started === true && data.held === true
+      setParties(canEdit ? (data.parties || []).map((party) => ({
         ...party,
         players: (party.players || []).filter((player) => player.userId && booked.has(player.userId) && player.kind !== 'GUEST'),
       })) : [])
@@ -214,11 +217,18 @@ export default function ResultsScreen({ gameId, onBack }) {
         <button type="button" className="btn-ghost" onClick={onBack}>К вечерам</button>
       </div>
       {!gameId ? <p className="muted">Выберите вечер</p> : null}
-      {gameId && sheet && !held ? (
+      {gameId && notStarted ? (
+        <div className="panel stack">
+          <h2>Вечер ещё не начался</h2>
+          <p>Запись ещё открыта. Результаты можно заполнять после начала вечера.</p>
+          <p>Подтверждено пока: {confirmedCount} из {MIN_PLAYERS}</p>
+        </div>
+      ) : null}
+      {gameId && failed ? (
         <div className="panel stack">
           <h2>Вечер не состоялся</h2>
           <p>Игры не проводились: на вечер записалось меньше 8 игроков. Гости не считаются.</p>
-          <p>Подтверждено: {confirmedCount} из 8</p>
+          <p>Подтверждено: {confirmedCount} из {MIN_PLAYERS}</p>
         </div>
       ) : null}
       {held ? (

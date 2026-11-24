@@ -12,11 +12,19 @@ router.get('/notifications', async (req, res) => {
     where: { userId: me.id },
     orderBy: { createdAt: 'desc' },
   })
+  const unread = rows.filter((row) => !row.isRead).map((row) => row.id)
+  if (unread.length) {
+    await prisma.notification.updateMany({
+      where: { id: { in: unread }, userId: me.id },
+      data: { isRead: true },
+    })
+  }
   res.json(rows.map((row) => ({
     id: row.id,
     type: row.notificationType,
     message: row.message,
-    isRead: row.isRead,
+    isRead: true,
+    wasNew: !row.isRead,
     createdAt: row.createdAt,
   })))
 })

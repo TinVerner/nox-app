@@ -27,16 +27,15 @@ router.get('/news', async (req, res) => {
   })))
 })
 
-router.post('/news', async (req, res) => {
+router.delete('/news/:id', async (req, res) => {
   const me = await meOrNull(req)
   if (!me || me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
-  const title = String(req.body.title || '').trim()
-  const body = String(req.body.body || '').trim()
-  if (!title || !body) return res.status(400).json({ error: 'title и body обязательны' })
-  const item = await prisma.newsPost.create({
-    data: { authorId: me.id, title, content: body, status: 'PUBLISHED' },
-  })
-  res.status(201).json({ id: item.id, title: item.title, body: item.content, createdAt: item.createdAt })
+  const postId = idParam(req.params.id)
+  if (!postId) return res.status(404).json({ error: 'новость не найдена' })
+  const post = await prisma.newsPost.findUnique({ where: { id: postId } })
+  if (!post) return res.status(404).json({ error: 'новость не найдена' })
+  await prisma.newsPost.delete({ where: { id: post.id } })
+  res.json({ ok: true })
 })
 
 router.get('/news/:id/comments', async (req, res) => {
@@ -79,7 +78,8 @@ router.delete('/news/:id/comments/:commentId', async (req, res) => {
     ? await prisma.comment.findFirst({ where: { id: commentId, postId } })
     : null
   if (!comment) return res.status(404).json({ error: 'не найдено' })
-  if (comment.userId !== me.id) return res.status(403).json({ error: 'нельзя' })
+  const canModerate = me.role === 'ADMIN' || comment.userId === me.id
+  if (!canModerate) return res.status(403).json({ error: 'нельзя' })
   await prisma.comment.delete({ where: { id: comment.id } })
   res.json({ ok: true })
 })

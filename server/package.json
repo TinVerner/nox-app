@@ -13,8 +13,10 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.10",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "express-session": "^1.19.0",
+    "multer": "^2.5.0",
     "prisma": "^6.19.3",
     "ws": "^8.23.0"
   }

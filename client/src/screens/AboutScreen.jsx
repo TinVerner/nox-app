@@ -1,11 +1,15 @@
+const ADDRESS = 'г. Минск, ул. Леонида Беды, 11'
+const ADDRESS_MAPS_URL =
+  'https://yandex.ru/maps/?text=' + encodeURIComponent(ADDRESS)
+
 const CONTACTS = [
-  { label: 'Адрес', value: 'г. Минск, ул. Леонида Беды, 11' },
+  { label: 'Адрес', value: ADDRESS, href: ADDRESS_MAPS_URL },
   { label: 'Телефон', value: '+375 33 471 23 67' },
   { label: 'Telegram', value: '@Nox_Club_Mafia' },
   { label: 'Instagram', value: 'NOX_Club_Mafia' },
 ]
 
-export default function AboutScreen({ onSchedule, onBack }) {
+export default function AboutScreen({ onSchedule }) {
   return (
     <section className="screen screen--about">
       <p className="eyebrow">О нас</p>
@@ -17,7 +21,6 @@ export default function AboutScreen({ onSchedule, onBack }) {
           <p>Открытые столы, обучающие вечера и турниры. Формат, время и стоимость участия указаны в расписании.</p>
           <div className="about-hero__actions">
             <button type="button" className="btn-primary" onClick={onSchedule}>Вечера клуба</button>
-            <button type="button" className="btn-secondary" onClick={onBack}>Вернуться назад</button>
           </div>
         </div>
         <aside className="about-mark">
@@ -32,7 +35,15 @@ export default function AboutScreen({ onSchedule, onBack }) {
           {CONTACTS.map((item) => (
             <div key={item.label}>
               <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
+              <dd>
+                {item.href ? (
+                  <a href={item.href} target="_blank" rel="noopener noreferrer">
+                    {item.value}
+                  </a>
+                ) : (
+                  item.value
+                )}
+              </dd>
             </div>
           ))}
         </dl>

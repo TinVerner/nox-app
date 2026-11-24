@@ -102,11 +102,26 @@ function liveMark(game, now = Date.now()) {
   }
 }
 
-/** Отмена вечера — только до старта, не для завершённых/отменённых */
-function canCancelNight(game, now = Date.now()) {
+/** Правка и отмена вечера — только до старта, не для завершённых/отменённых */
+function canManageNight(game, now = Date.now()) {
   if (!game || game.status === 'CANCELLED' || game.status === 'DONE') return false
   const start = new Date(game.startsAt).getTime()
   return !Number.isNaN(start) && start > now
+}
+
+function canCancelNight(game, now = Date.now()) {
+  return canManageNight(game, now)
+}
+
+function canEditNight(game, now = Date.now()) {
+  return canManageNight(game, now)
+}
+
+/** Результаты — только после старта; до старта остаются Изменить/Отменить */
+function canOpenResults(game, now = Date.now()) {
+  if (!game || game.status === 'CANCELLED') return false
+  const start = new Date(game.startsAt).getTime()
+  return !Number.isNaN(start) && start <= now
 }
 
 function bookLabel(game) {
@@ -245,7 +260,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [nightCanceling, setNightCanceling] = useState(false)
   const [nightCancelError, setNightCancelError] = useState('')
   const [nightCancelDone, setNightCancelDone] = useState(false)
-  const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
+  const staff = me?.role === 'HOST'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
   useEffect(() => {
@@ -358,7 +373,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
 
   const week = minskWeek()
   const visible = games.filter((game) => {
-    if (me?.role === 'PLAYER' && new Date(game.startsAt).getTime() <= Date.now()) return false
+    if ((!me || me.role === 'PLAYER') && new Date(game.startsAt).getTime() <= Date.now()) return false
     if (kindFilter !== 'ALL' && game.kind !== kindFilter) return false
     if (weekFilter === 'WEEK' && !inMinskWeek(game.startsAt, week)) return false
     return true
@@ -418,16 +433,15 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               <p className="muted">{KIND_LABEL[game.kind] || game.kind} · {game.taken ?? 0} из {game.seats}</p>
               {/* описание вечера видно в расписании, не только в форме ведущего */}
               {game.description ? <p>{game.description}</p> : null}
-              {game.imagePath ? <p className="muted">{game.imagePath}</p> : null}
             </div>
             <div className="night-card__side">
               {game.price > 0 && <span className="price">{game.price} BYN</span>}
-              {staff && (
+              {staff && canEditNight(game) && (
                 <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
               )}
-              {staff && (
+              {staff && canOpenResults(game) && (
                 <button type="button" className="btn-primary btn-s" onClick={() => onResults(game)}>
-                  {game.resultsStatus === 'PUBLISHED' ? 'Смотреть результаты' : game.resultsStatus === 'DRAFT' ? 'Продолжить результаты' : 'Записать результаты'}
+                  Результаты
                 </button>
               )}
               {staff && canCancelNight(game) && (
@@ -439,7 +453,7 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
                   Отменить
                 </button>
               )}
-              {isBooked(bookedIds, game.id) ? (
+              {!staff && isBooked(bookedIds, game.id) ? (
                 <>
                   <button type="button" className="btn-primary btn-s" disabled>Вы записаны</button>
                   <button type="button" className="btn-ghost btn-s" onClick={() => { setCancelError(''); setCancelTarget(game) }}>Отменить</button>

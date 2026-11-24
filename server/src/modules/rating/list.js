@@ -2,29 +2,41 @@ import { prisma } from '../../shared/prisma.js'
 import { scoreOf } from '../results/score.js'
 import { RANK_LABEL, ensureRanks, rankCodes } from '../ranks/defs.js'
 
-export async function ratingList() {
+export async function ratingList(seasonId = null) {
   await ensureRanks()
   const players = await prisma.user.findMany({
     where: { role: 'PLAYER' },
     select: { id: true, displayName: true },
   })
   const ids = players.map((player) => player.id)
+  const partyFilter = {
+    attendanceStatus: { not: 'SKIPPED' },
+    party: {
+      status: { in: ['PUBLISHED', 'DONE'] },
+      ...(seasonId
+        ? { night: { seasonId: Number(seasonId) } }
+        : {}),
+    },
+    ...(ids.length ? { userId: { in: ids } } : { userId: -1 }),
+  }
   const played = ids.length
     ? await prisma.partyPlayer.findMany({
-      where: {
-        userId: { in: ids },
-        attendanceStatus: { not: 'SKIPPED' },
-        party: { status: { in: ['PUBLISHED', 'DONE'] } },
+      where: partyFilter,
+      select: {
+        userId: true,
+        playerName: true,
+        basePoints: true,
+        extraPoints: true,
+        penaltyPoints: true,
+        attendanceStatus: true,
       },
-      select: { userId: true, playerName: true, basePoints: true, extraPoints: true, penaltyPoints: true, attendanceStatus: true },
     })
     : []
   const codes = await rankCodes(ids)
   const stats = new Map(ids.map((id) => [id, { points: 0, games: 0 }]))
   for (const row of played) {
-    const player = players.find((item) => item.id === row.userId)
-    if (!player) continue
-    const bucket = stats.get(player.id)
+    if (!row.userId || !stats.has(row.userId)) continue
+    const bucket = stats.get(row.userId)
     bucket.points += scoreOf(row)
     bucket.games += 1
   }

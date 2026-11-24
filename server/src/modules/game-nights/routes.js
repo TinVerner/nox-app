@@ -1,14 +1,14 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
-import { isStaff, meOrNull } from '../auth/session.js'
-import { minskDate, nightCancelBlocked, nightExtras, nightJson, PUBLIC_NIGHT, takenCounts } from './night.js'
+import { isHost, meOrNull } from '../auth/session.js'
+import { minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, PUBLIC_NIGHT, takenCounts } from './night.js'
 
 const router = Router()
 
 router.get('/games', async (req, res) => {
   const me = await meOrNull(req)
-  const staff = isStaff(me)
+  const staff = isHost(me)
   const items = await prisma.gameNight.findMany({
     orderBy: { startsAt: 'asc' },
     include: { season: true },
@@ -45,7 +45,7 @@ router.get('/games', async (req, res) => {
 
 router.post('/games', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const title = String(req.body.title || '').trim()
   const startsAt = minskDate(req.body.startsAt)
   const endsAt = minskDate(req.body.endsAt)
@@ -76,10 +76,12 @@ router.post('/games', async (req, res) => {
 
 router.patch('/games/:id', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
   if (!night) return res.status(404).json({ error: 'игра не найдена' })
+  const blocked = nightEditBlocked(night)
+  if (blocked) return res.status(409).json({ error: blocked })
   const data = {}
   if (req.body.title !== undefined) data.title = req.body.title
   if (req.body.startsAt !== undefined) data.startsAt = minskDate(req.body.startsAt)
@@ -110,7 +112,7 @@ router.patch('/games/:id', async (req, res) => {
 
 router.post('/games/:id/cancel', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
   if (!night) return res.status(404).json({ error: 'игра не найдена' })

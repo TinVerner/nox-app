@@ -5,7 +5,7 @@ import { meOrNull } from '../auth/session.js'
 import { approvedBookingBlock } from '../sanctions/policy.js'
 import { takenCounts } from '../game-nights/night.js'
 import { scoreOf } from '../results/score.js'
-import { notifyHost } from './notify-host.js'
+import { bookingMessage, notifyHost } from './notify-host.js'
 
 const WAITLIST_SIZE = 4
 
@@ -54,7 +54,8 @@ router.post('/games/:id/book', async (req, res) => {
       },
     })
   res.status(201).json(booking)
-  await notifyHost(night, 'Запись на вечер изменилась')
+  const action = status === 'WAITING' ? 'wait' : 'book'
+  await notifyHost(night, bookingMessage(action, me.displayName, night))
 })
 
 router.get('/bookings', async (req, res) => {
@@ -108,7 +109,11 @@ router.delete('/bookings/:id', async (req, res) => {
     data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: 'отмена игроком' },
   })
   res.json({ ok: true })
-  await notifyHost(booking.night, 'Запись на вечер отменена')
+  const player = await prisma.user.findUnique({
+    where: { id: booking.userId },
+    select: { displayName: true },
+  })
+  await notifyHost(booking.night, bookingMessage('cancel', player?.displayName, booking.night))
 })
 
 export default router

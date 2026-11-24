@@ -1,3 +1,5 @@
 /* Карточка участника использует .panel и .member-card. */
 
-.member-panel { margin-top: 16px; }
+.member-detail { margin-top: 16px; }
+.member-panel { margin-top: 0; }
+.member-detail h2 { margin: 0 0 8px; font-size: 22px; }

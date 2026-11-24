@@ -41,6 +41,10 @@ export function isStaff(user) {
   return user && (user.role === 'HOST' || user.role === 'ADMIN')
 }
 
+export function isHost(user) {
+  return user && user.role === 'HOST'
+}
+
 export function isAdmin(user) {
   return user && user.role === 'ADMIN'
 }

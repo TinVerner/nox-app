@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 import Modal from '../components/Modal'
-import { RANKS } from '../ranks'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -14,7 +13,6 @@ export default function UsersScreen() {
   const [q, setQ] = useState('')
   const [role, setRole] = useState('')
   const [selected, setSelected] = useState(null)
-  const [bonus, setBonus] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -45,28 +43,9 @@ export default function UsersScreen() {
     apply(updated)
   }
 
-  function setRank(rank) {
-    if (!rank) return
-    setError('заявку подаёт игрок')
-  }
-
   function openUser(user) {
     setError('')
-    setBonus(String(user.bonus ?? 0))
     setSelected(user)
-  }
-
-  async function saveBonus(id) {
-    const res = await apiFetch('/api/users/' + id + '/bonus', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bonus: Number(bonus) }),
-    })
-    const updated = await res.json()
-    if (!res.ok) return setError(updated.error || 'не вышло')
-    setError('')
-    apply(updated)
-    setBonus(String(updated.bonus ?? 0))
   }
 
   async function setBlocked(id, blocked) {
@@ -139,19 +118,6 @@ export default function UsersScreen() {
           <p className={selected.blocked ? 'status-wait' : 'status-ok'}>
             {selected.blocked ? 'заблокирован' : 'активен'}
           </p>
-          <div className="user-rank">
-            <label htmlFor="user-bonus">Бонусы</label>
-            <input id="user-bonus" type="number" step="0.01" value={bonus} onChange={(event) => setBonus(event.target.value)} />
-            <button type="button" className="btn-secondary btn-s" onClick={() => saveBonus(selected.id)}>Сохранить баланс</button>
-          </div>
-          <div className="user-rank">
-            <label htmlFor="user-rank">Ранг</label>
-            <select id="user-rank" value={selected.rank || ''} onChange={(event) => setRank(event.target.value)}>
-              {RANKS.map((rank) => (
-                <option key={rank.id} value={rank.id}>{rank.label}</option>
-              ))}
-            </select>
-          </div>
           {error && <p className="error">{error}</p>}
           <div className="user-actions">
             <button type="button" className="btn-secondary btn-s" onClick={() => setUserRole(selected.id, 'PLAYER')}>PLAYER</button>

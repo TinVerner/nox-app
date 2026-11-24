@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam, num } from '../../shared/input.js'
-import { isStaff, meOrNull } from '../auth/session.js'
+import { isHost, meOrNull } from '../auth/session.js'
 
 const router = Router()
 const TYPES = new Set(['TOURNAMENT', 'CLUB_EVENT'])
@@ -18,7 +18,6 @@ function eventJson(item, registrations, mine) {
     startsAt: item.startsAt,
     capacity: item.capacity,
     price: item.price == null ? null : num(item.price),
-    imagePath: item.imagePath || '',
     status: item.status,
     registrations: registrations.map((row) => ({
       id: row.id,
@@ -54,7 +53,7 @@ router.get('/events', async (req, res) => {
       registrations: { include: { user: { select: { displayName: true } } }, orderBy: { registeredAt: 'asc' } },
     },
   })
-  const staff = isStaff(me)
+  const staff = isHost(me)
   res.json(items.map((item) => {
     const mine = item.registrations.find((row) => row.userId === me.id) || null
     const visible = staff ? item.registrations : mine ? [mine] : []
@@ -64,7 +63,7 @@ router.get('/events', async (req, res) => {
 
 router.post('/events', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const title = String(req.body.title || '').trim()
   const eventType = req.body.eventType
   const startsAt = req.body.startsAt
@@ -90,7 +89,6 @@ router.post('/events', async (req, res) => {
       startsAt: new Date(startsAt),
       capacity,
       price,
-      imagePath: String(req.body.imagePath || '').trim() || null,
       status: String(req.body.status || 'PLANNED').trim() || 'PLANNED',
     },
     include: { host: { select: { displayName: true } } },
@@ -100,7 +98,7 @@ router.post('/events', async (req, res) => {
 
 router.patch('/events/:id', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const id = idParam(req.params.id)
   const item = id ? await prisma.event.findUnique({ where: { id } }) : null
   if (!item) return res.status(404).json({ error: 'не найдено' })
@@ -130,7 +128,6 @@ router.patch('/events/:id', async (req, res) => {
     }
     data.price = price
   }
-  if (req.body.imagePath !== undefined) data.imagePath = String(req.body.imagePath || '').trim() || null
   if (req.body.status !== undefined) data.status = String(req.body.status || '').trim() || 'PLANNED'
   if (req.body.seasonId !== undefined) data.seasonId = req.body.seasonId ? Number(req.body.seasonId) : null
   const updated = await prisma.event.update({
@@ -142,6 +139,16 @@ router.patch('/events/:id', async (req, res) => {
     },
   })
   res.json(eventJson(updated, updated.registrations, null))
+})
+
+router.delete('/events/:id', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
+  const id = idParam(req.params.id)
+  const item = id ? await prisma.event.findUnique({ where: { id } }) : null
+  if (!item) return res.status(404).json({ error: 'не найдено' })
+  await prisma.event.delete({ where: { id } })
+  res.json({ ok: true })
 })
 
 router.post('/events/:id/register', async (req, res) => {
@@ -186,14 +193,14 @@ router.delete('/events/:id/register', async (req, res) => {
     ? await prisma.eventRegistration.findUnique({ where: { eventId_userId: { eventId: id, userId: me.id } } })
     : null
   if (!row) return res.status(404).json({ error: 'записи нет' })
-  if (row.userId !== me.id && !isStaff(me)) return res.status(403).json({ error: 'нельзя' })
+  if (row.userId !== me.id && !isHost(me)) return res.status(403).json({ error: 'нельзя' })
   await prisma.eventRegistration.delete({ where: { id: row.id } })
   res.json({ ok: true })
 })
 
 router.patch('/events/:id/registrations/:registrationId', async (req, res) => {
   const me = await meOrNull(req)
-  if (!isStaff(me)) return res.status(403).json({ error: 'только ведущий' })
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
   const eventId = idParam(req.params.id)
   const registrationId = idParam(req.params.registrationId)
   const row = registrationId

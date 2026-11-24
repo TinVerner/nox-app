@@ -4,7 +4,7 @@ import { RANKS } from '../ranks'
 
 // Заявки user_ranks: игрок подаёт PENDING, ведущий и админ подтверждают или отклоняют.
 export default function RanksScreen({ me }) {
-  const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
+  const staff = me?.role === 'HOST'
   const [rows, setRows] = useState(null)
   const [rank, setRank] = useState('MASTER')
   const [error, setError] = useState('')
@@ -66,7 +66,10 @@ export default function RanksScreen({ me }) {
           {rows.map((row) => (
             <article key={row.id} className="panel rank-card">
               <h2>{row.nick}</h2>
-              <p>{row.label} · {row.status === 'PENDING' ? 'на рассмотрении' : row.status === 'CONFIRMED' ? 'подтверждён' : 'отклонён'}</p>
+              <p className="rank-card__rank">{row.label}</p>
+              <p className="muted rank-card__status">
+                {row.status === 'PENDING' ? 'на рассмотрении' : row.status === 'CONFIRMED' ? 'подтверждён' : 'отклонён'}
+              </p>
               {staff && row.status === 'PENDING' && (
                 <div className="user-actions">
                   <button type="button" className="btn-primary btn-s" onClick={() => decide(row.id, 'CONFIRMED')}>Подтвердить</button>

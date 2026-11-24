@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
+import Modal from '../components/Modal'
 
 const TYPE = {
   TOURNAMENT: 'Турнир',
@@ -13,7 +14,36 @@ const EMPTY = {
   startsAt: '',
   capacity: '',
   price: '',
-  imagePath: '',
+}
+
+function minskNowInput() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Minsk',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const value = (type) => parts.find((part) => part.type === type).value
+  return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}`
+}
+
+function toMinskInput(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Minsk',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const value = (type) => parts.find((part) => part.type === type).value
+  return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}`
 }
 
 function when(iso) {
@@ -22,10 +52,61 @@ function when(iso) {
   return date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
+function EventModal({ item, onClose, onSave }) {
+  const [draft, setDraft] = useState(item
+    ? {
+      eventType: item.eventType,
+      title: item.title,
+      description: item.description || '',
+      startsAt: toMinskInput(item.startsAt),
+      capacity: item.capacity ?? '',
+      price: item.price ?? '',
+    }
+    : EMPTY)
+  const [error, setError] = useState('')
+  const earliest = minskNowInput()
+
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    const ok = await onSave(draft)
+    if (ok === false) setError('не вышло')
+    else if (typeof ok === 'string') setError(ok)
+    else onClose()
+  }
+
+  return (
+    <Modal title={item ? 'Изменить мероприятие' : 'Создать мероприятие'} eyebrow="Клуб" onClose={onClose}>
+      <form className="stack" onSubmit={submit}>
+        <select value={draft.eventType} onChange={(event) => setDraft({ ...draft, eventType: event.target.value })}>
+          <option value="CLUB_EVENT">Мероприятие</option>
+          <option value="TOURNAMENT">Турнир</option>
+        </select>
+        <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="название" required />
+        <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="описание" />
+        <input
+          type="datetime-local"
+          min={earliest}
+          value={draft.startsAt}
+          onChange={(event) => setDraft({ ...draft, startsAt: event.target.value })}
+          required
+        />
+        <input value={draft.capacity} onChange={(event) => setDraft({ ...draft, capacity: event.target.value })} placeholder="мест" inputMode="numeric" />
+        <input value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} placeholder="цена, BYN" inputMode="decimal" />
+        {error ? <p className="error">{error}</p> : null}
+        <div className="modal-actions">
+          <button type="button" className="btn-ghost" onClick={onClose}>Отмена</button>
+          <button type="submit" className="btn-primary">Сохранить</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export default function EventsScreen({ me }) {
-  const staff = me?.role === 'HOST' || me?.role === 'ADMIN'
+  const staff = me?.role === 'HOST'
   const [rows, setRows] = useState(null)
-  const [draft, setDraft] = useState(EMPTY)
+  const [editor, setEditor] = useState(null)
   const [error, setError] = useState('')
 
   function load() {
@@ -37,17 +118,29 @@ export default function EventsScreen({ me }) {
 
   useEffect(() => { load() }, [])
 
-  async function createEvent(event) {
-    event.preventDefault()
+  async function saveEvent(draft) {
     setError('')
-    const response = await apiFetch('/api/events', {
-      method: 'POST',
+    const editing = editor && editor !== true ? editor : null
+    const path = editing ? '/api/events/' + editing.id : '/api/events'
+    const response = await apiFetch(path, {
+      method: editing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(draft),
     })
     const data = await response.json().catch(() => ({}))
-    if (!response.ok) return setError(data.error || 'не вышло')
-    setDraft(EMPTY)
+    if (!response.ok) return data.error || 'не вышло'
+    load()
+    return true
+  }
+
+  async function removeEvent(item) {
+    setError('')
+    const response = await apiFetch('/api/events/' + item.id, { method: 'DELETE' })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      return setError(data.error || 'не вышло')
+    }
+    if (editor && editor !== true && editor.id === item.id) setEditor(null)
     load()
   }
 
@@ -89,30 +182,21 @@ export default function EventsScreen({ me }) {
 
   return (
     <section className="screen">
-      <p className="eyebrow">Клуб</p>
-      <h1>Мероприятия</h1>
-      <p className="lede">Турниры и клубные встречи. Запись хранит гостей и итоговое место.</p>
-      {staff && (
-        <form className="panel stack" onSubmit={createEvent}>
-          <select value={draft.eventType} onChange={(event) => setDraft({ ...draft, eventType: event.target.value })}>
-            <option value="CLUB_EVENT">Мероприятие</option>
-            <option value="TOURNAMENT">Турнир</option>
-          </select>
-          <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="название" required />
-          <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="описание" />
-          <input type="datetime-local" value={draft.startsAt} onChange={(event) => setDraft({ ...draft, startsAt: event.target.value })} required />
-          <input value={draft.capacity} onChange={(event) => setDraft({ ...draft, capacity: event.target.value })} placeholder="мест" inputMode="numeric" />
-          <input value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} placeholder="цена, BYN" inputMode="decimal" />
-          <input value={draft.imagePath} onChange={(event) => setDraft({ ...draft, imagePath: event.target.value })} placeholder="картинка, ссылка" />
-          {error ? <p className="error">{error}</p> : null}
-          <button type="submit" className="btn-primary">Добавить</button>
-        </form>
-      )}
+      <div className="page-head">
+        <div>
+          <p className="eyebrow">Клуб</p>
+          <h1>Мероприятия</h1>
+          <p className="lede">Турниры и клубные встречи. Запись хранит гостей и итоговое место.</p>
+        </div>
+        {staff && (
+          <button type="button" className="btn-primary" onClick={() => setEditor(true)}>Создать мероприятие</button>
+        )}
+      </div>
+      {error ? <p className="error">{error}</p> : null}
       {rows === null ? null : rows.length === 0 ? (
-        <p className={staff ? 'muted form-follow' : 'muted'}>пусто</p>
+        <p className="muted">пусто</p>
       ) : (
-        <div className={staff ? 'stack form-follow' : 'stack'}>
-          {!staff && error ? <p className="error">{error}</p> : null}
+        <div className="stack">
           {rows.map((item) => (
             <EventCard
               key={item.id}
@@ -122,9 +206,18 @@ export default function EventsScreen({ me }) {
               onRegister={register}
               onCancel={cancel}
               onPlace={setPlace}
+              onEdit={() => setEditor(item)}
+              onDelete={removeEvent}
             />
           ))}
         </div>
+      )}
+      {editor && (
+        <EventModal
+          item={editor === true ? null : editor}
+          onClose={() => setEditor(null)}
+          onSave={saveEvent}
+        />
       )}
     </section>
   )
@@ -140,7 +233,7 @@ function PlaceField({ onSave }) {
   )
 }
 
-function EventCard({ item, staff, player, onRegister, onCancel, onPlace }) {
+function EventCard({ item, staff, player, onRegister, onCancel, onPlace, onEdit, onDelete }) {
   const [guests, setGuests] = useState('0')
 
   return (
@@ -153,7 +246,12 @@ function EventCard({ item, staff, player, onRegister, onCancel, onPlace }) {
         {item.capacity != null ? ` · мест ${item.capacity}` : ''}
         {item.price != null ? ` · ${item.price} BYN` : ''}
       </p>
-      {item.imagePath ? <p className="muted">{item.imagePath}</p> : null}
+      {staff && (
+        <div className="user-actions">
+          <button type="button" className="btn-secondary btn-s" onClick={onEdit}>Изменить</button>
+          <button type="button" className="btn-ghost btn-s" onClick={() => onDelete(item)}>Удалить</button>
+        </div>
+      )}
       {player && !item.mine && (
         <div className="user-actions">
           <input value={guests} onChange={(event) => setGuests(event.target.value)} placeholder="гости" inputMode="numeric" />
