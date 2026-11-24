@@ -3,19 +3,14 @@ import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { meOrNull } from '../auth/session.js'
 import { approvedBookingBlock } from '../sanctions/policy.js'
-import { nightManageBlocked, PUBLIC_NIGHT, takenCounts } from '../game-nights/night.js'
+import { lockNight, nightManageBlocked, promoteWaiting, PUBLIC_NIGHT, takenCounts } from '../game-nights/night.js'
+import { MIN_CONFIRMED } from '../results/calc.js'
 import { scoreOf } from '../results/score.js'
 import { bookingMessage, notifyHost } from './notify-host.js'
 
 const WAITLIST_SIZE = 4
 
 const router = Router()
-
-// Строка вечера блокируется до конца транзакции: параллельные записи и отмены идут по очереди,
-// поэтому мест не бывает больше, чем capacity.
-function lockNight(tx, nightId) {
-  return tx.$queryRaw`SELECT id FROM game_nights WHERE id = ${nightId} FOR UPDATE`
-}
 
 function bookingClosed(night, now = Date.now()) {
   if (!PUBLIC_NIGHT.has(night.status) || night.season?.status === 'CLOSED') return true
@@ -109,6 +104,8 @@ router.get('/bookings', async (req, res) => {
       place: booking.night?.description || '',
       seats: booking.night?.capacity ?? null,
       taken: taken.get(booking.gameNightId) || 0,
+      // Меньше 8 подтверждённых — вечер не проводится, результатов не будет.
+      held: (taken.get(booking.gameNightId) || 0) >= MIN_CONFIRMED,
       points: pointsByNight.has(booking.gameNightId) ? pointsByNight.get(booking.gameNightId) : null,
       past,
       resultsPublished,
@@ -135,25 +132,7 @@ router.delete('/bookings/:id', async (req, res) => {
       where: { id: booking.id },
       data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: 'отмена игроком' },
     })
-    if (booking.status !== 'CONFIRMED') return { booking }
-    // Освободилось место — его получает тот, кто дольше всех ждёт.
-    const confirmed = await tx.booking.count({ where: { gameNightId: booking.gameNightId, status: 'CONFIRMED' } })
-    if (confirmed >= booking.night.capacity) return { booking }
-    const next = await tx.booking.findFirst({
-      where: { gameNightId: booking.gameNightId, status: 'WAITING' },
-      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-    })
-    if (next) {
-      await tx.booking.update({ where: { id: next.id }, data: { status: 'CONFIRMED' } })
-      await tx.notification.create({
-        data: {
-          userId: next.userId,
-          notificationType: 'BOOKING',
-          message: `Освободилось место — вы записаны на «${booking.night.title}»`,
-          targetPath: '/bookings',
-        },
-      })
-    }
+    if (booking.status === 'CONFIRMED') await promoteWaiting(tx, booking.night)
     return { booking }
   })
   if (outcome.error) return res.status(outcome.httpStatus).json({ error: outcome.error })

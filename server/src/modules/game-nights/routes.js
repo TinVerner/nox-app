@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
-import { minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, PUBLIC_NIGHT, takenCounts } from './night.js'
+import { lockNight, minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, promoteWaiting, PUBLIC_NIGHT, takenCounts } from './night.js'
 
 const router = Router()
 
@@ -99,15 +99,28 @@ router.patch('/games/:id', async (req, res) => {
   }
   if (req.body.seats !== undefined || req.body.capacity !== undefined) {
     data.capacity = Number(req.body.capacity ?? req.body.seats)
+    if (!Number.isInteger(data.capacity) || data.capacity < 1) {
+      return res.status(400).json({ error: 'число мест — целое от 1' })
+    }
   }
   if (req.body.kind !== undefined || req.body.format !== undefined) {
     data.format = req.body.format || req.body.kind
   }
   if (req.body.status !== undefined) data.status = req.body.status
   Object.assign(data, nightExtras(req.body))
-  const item = await prisma.gameNight.update({ where: { id }, data })
+  const outcome = await prisma.$transaction(async (tx) => {
+    await lockNight(tx, id)
+    if (data.capacity !== undefined) {
+      const confirmed = await tx.booking.count({ where: { gameNightId: id, status: 'CONFIRMED' } })
+      if (data.capacity < confirmed) return { error: `уже записано ${confirmed} — мест не может быть меньше` }
+    }
+    const item = await tx.gameNight.update({ where: { id }, data })
+    await promoteWaiting(tx, item)
+    return { item }
+  })
+  if (outcome.error) return res.status(409).json({ error: outcome.error })
   const taken = await takenCounts([id])
-  res.json(nightJson(item, taken.get(id) || 0))
+  res.json(nightJson(outcome.item, taken.get(id) || 0))
 })
 
 router.post('/games/:id/cancel', async (req, res) => {

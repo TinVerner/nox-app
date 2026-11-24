@@ -80,3 +80,32 @@ export async function takenCounts(nightIds) {
   for (const [id, set] of people) map.set(id, set.size)
   return map
 }
+
+// Строка вечера блокируется до конца транзакции: параллельные записи, отмены и правки
+// вечера идут по очереди, поэтому мест не бывает больше, чем capacity.
+export function lockNight(tx, nightId) {
+  return tx.$queryRaw`SELECT id FROM game_nights WHERE id = ${nightId} FOR UPDATE`
+}
+
+// Свободные места получают те, кто дольше всех ждёт; каждому приходит уведомление.
+export async function promoteWaiting(tx, night) {
+  const confirmed = await tx.booking.count({ where: { gameNightId: night.id, status: 'CONFIRMED' } })
+  const free = night.capacity - confirmed
+  if (free <= 0) return
+  const waiting = await tx.booking.findMany({
+    where: { gameNightId: night.id, status: 'WAITING' },
+    orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+    take: free,
+  })
+  for (const row of waiting) {
+    await tx.booking.update({ where: { id: row.id }, data: { status: 'CONFIRMED' } })
+    await tx.notification.create({
+      data: {
+        userId: row.userId,
+        notificationType: 'BOOKING',
+        message: `Освободилось место — вы записаны на «${night.title}»`,
+        targetPath: '/bookings',
+      },
+    })
+  }
+}

@@ -28,6 +28,9 @@ function showPoints(value) {
 }
 
 function bookingState(row) {
+  if (row.gameStatus === 'CANCELLED') {
+    return { label: 'Вечер отменён', className: 'status-muted', action: null }
+  }
   const past = row.past || row.gameStatus === 'DONE' || (row.startsAt && new Date(row.startsAt).getTime() <= Date.now())
   if (!past) {
     return {
@@ -43,6 +46,9 @@ function bookingState(row) {
       className: 'status-muted',
       action: 'result',
     }
+  }
+  if (row.held === false) {
+    return { label: 'Вечер не состоялся', className: 'status-muted', action: null }
   }
   return {
     label: 'Подождите, результаты ещё формируются',

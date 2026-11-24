@@ -3,7 +3,7 @@ import { prisma } from '../../shared/prisma.js'
 import { idParam, num } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
 import { alignClassicRules, findActivePointRule } from '../point-rules/rules.js'
-import { ROLE_CODES, SIDE_CODES, lineScore, nightSums, parseExtra, round2 } from './calc.js'
+import { MIN_CONFIRMED, ROLE_CODES, SIDE_CODES, lineScore, nightSums, parseExtra, round2 } from './calc.js'
 
 function canReadPlayed(user) {
   return user && (user.role === 'PLAYER' || user.role === 'HOST' || user.role === 'ADMIN')
@@ -39,7 +39,6 @@ function publishedDetail(night, parties) {
 
 const router = Router()
 const PUBLISHED = new Set(['PUBLISHED', 'DONE'])
-const MIN_CONFIRMED = 8
 
 function playerKind(player) {
   if (player.bookingGuestId) return 'GUEST'

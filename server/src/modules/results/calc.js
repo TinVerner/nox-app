@@ -1,3 +1,5 @@
+export const MIN_CONFIRMED = 8
+
 export const ROLE_CODES = ['CIVILIAN', 'SHERIFF', 'MAFIA', 'DON']
 export const SIDE_CODES = ['CITY', 'MAFIA']
 

@@ -31,6 +31,8 @@ router.patch('/users/:id/role', async (req, res) => {
   const role = req.body.role
   if (!['PLAYER', 'HOST', 'ADMIN'].includes(role)) return res.status(400).json({ error: 'роль: PLAYER, HOST или ADMIN' })
   const id = idParam(req.params.id)
+  // Иначе единственный админ может лишить клуб админа одним кликом.
+  if (id === me.id) return res.status(400).json({ error: 'нельзя менять свою роль' })
   const user = id ? await prisma.user.findUnique({ where: { id } }) : null
   if (!user) return res.status(404).json({ error: 'не найдено' })
   const updated = await prisma.user.update({ where: { id }, data: { role } })
@@ -56,6 +58,7 @@ router.patch('/users/:id/block', async (req, res) => {
   const me = await meOrNull(req)
   if (!me || me.role !== 'ADMIN') return res.status(403).json({ error: 'только админ' })
   const id = idParam(req.params.id)
+  if (id === me.id) return res.status(400).json({ error: 'нельзя заблокировать себя' })
   const user = id ? await prisma.user.findUnique({ where: { id } }) : null
   if (!user) return res.status(404).json({ error: 'не найдено' })
   const updated = await prisma.user.update({

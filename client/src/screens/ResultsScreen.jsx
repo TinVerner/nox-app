@@ -137,6 +137,8 @@ export default function ResultsScreen({ gameId, onBack, onPublished }) {
   const rows = held ? rosterRows : []
   const published = held && sheet?.persisted && partiesPublished(parties)
   const viewOnly = held && published && !editing
+  // По ответу сервера, а не по локальным партиям: новая несохранённая партия не делает вечер черновиком.
+  const serverPublished = held && sheet?.persisted && partiesPublished(sheet?.parties)
 
   function updateParty(index, patch) {
     setParties((list) => list.map((party, partyIndex) => (partyIndex === index ? { ...party, ...patch } : party)))
@@ -447,7 +449,10 @@ export default function ResultsScreen({ gameId, onBack, onPublished }) {
       {held && editing ? (
       <div className="result-actions">
         <button type="button" className="btn-secondary" onClick={addParty}>Ещё партия</button>
-        <button type="button" className="btn-ghost" disabled={busy} onClick={() => save('draft')}>Сохранить черновик</button>
+        {/* Черновик снял бы уже опубликованные результаты из рейтинга и «Сыгранных». */}
+        {serverPublished ? null : (
+          <button type="button" className="btn-ghost" disabled={busy} onClick={() => save('draft')}>Сохранить черновик</button>
+        )}
         <button type="button" className="btn-primary" disabled={busy} onClick={() => save('publish')}>Опубликовать результаты</button>
         {published ? (
           <button type="button" className="btn-ghost" disabled={busy} onClick={() => setEditing(false)}>Отмена правки</button>
