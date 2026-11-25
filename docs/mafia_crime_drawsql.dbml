@@ -1,0 +1,222 @@
+// Mafia CRIME — сокращенная схема PostgreSQL
+// 12 таблиц. Убраны сезоны, мероприятия, каталог, ранги и санкции.
+// Рейтинг глобальный (без сезонного разреза). Числовые правила очков настраиваются отдельно.
+
+Table users {
+  id bigint [pk, increment]
+  email varchar(255) [not null, unique]
+  password_hash text [not null]
+  display_name varchar(100) [not null]
+  role varchar(20) [not null, default: 'PLAYER', note: 'PLAYER, HOST, ADMIN']
+  status varchar(20) [not null, default: 'ACTIVE', note: 'ACTIVE, BLOCKED']
+  avatar_path text
+  bonus_balance decimal(10,2) [not null, default: 0]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: "Одна учетная запись имеет одну роль. Гость просматривает публичные разделы без регистрации. Текущий бонусный баланс хранится в профиле."
+}
+
+Table sessions {
+  id varchar(128) [pk]
+  user_id bigint [not null]
+  expires_at timestamptz [not null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    user_id
+    expires_at
+  }
+
+  Note: "Серверные сессии авторизации; идентификатор передается через HttpOnly cookie."
+}
+
+Table game_nights {
+  id bigint [pk, increment]
+  host_id bigint [not null]
+  format varchar(100) [not null, note: 'CLASSIC или NOVICE']
+  title varchar(200) [not null]
+  description text
+  starts_at timestamptz [not null]
+  ends_at timestamptz
+  registration_deadline_at timestamptz
+  capacity int [not null]
+  status varchar(20) [not null, default: 'PLANNED']
+  image_path text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    starts_at
+    (status, starts_at)
+    host_id
+  }
+
+  Note: "Игровые вечера клуба. Формат хранится непосредственно в записи игрового вечера."
+}
+
+Table bookings {
+  id bigint [pk, increment]
+  game_night_id bigint [not null]
+  user_id bigint [not null]
+  status varchar(20) [not null, default: 'CONFIRMED']
+  host_notified_at timestamptz
+  cancellation_reason text
+  cancelled_at timestamptz
+  over_capacity_override boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (game_night_id, user_id) [unique]
+    (game_night_id, status)
+    (user_id, status)
+  }
+
+  Note: "Бронирования игроков. Превышение вместимости ведущий разрешает вручную; правила отмены проверяет сервер."
+}
+
+Table booking_guests {
+  id bigint [pk, increment]
+  booking_id bigint [not null]
+  display_name varchar(100) [not null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    booking_id
+  }
+
+  Note: "Имена дополнительных гостей, которых игрок записывает вместе с собой."
+}
+
+Table parties {
+  id bigint [pk, increment]
+  game_night_id bigint [not null]
+  party_number int [not null]
+  status varchar(20) [not null, default: 'DRAFT']
+  created_by bigint [not null]
+  created_at timestamptz [not null, default: `now()`]
+  finalized_at timestamptz
+
+  indexes {
+    (game_night_id, party_number) [unique]
+  }
+
+  Note: "Отдельные партии в рамках игрового вечера."
+}
+
+Table point_rules {
+  id bigint [pk, increment]
+  format varchar(100) [not null]
+  player_role varchar(50) [not null]
+  game_result varchar(30) [not null]
+  points decimal(8,2) [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (format, player_role, game_result) [unique]
+  }
+
+  Note: "Правила базовых игровых очков по формату, роли и исходу партии. Значения настраиваются отдельно."
+}
+
+Table party_players {
+  id bigint [pk, increment]
+  party_id bigint [not null]
+  user_id bigint
+  player_name varchar(100) [not null]
+  player_role varchar(50) [not null]
+  game_result varchar(30) [not null]
+  base_points decimal(8,2) [not null, default: 0]
+  extra_points decimal(8,2) [not null, default: 0]
+  penalty_points decimal(8,2) [not null, default: 0]
+  attendance_status varchar(20) [not null, default: 'PRESENT']
+  note text
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    party_id
+    user_id
+  }
+
+  Note: "Результаты игроков в партиях. Система рассчитывает базовые очки, ведущий указывает дополнительные очки и штрафы. Рейтинг клуба строится по всем опубликованным партиям без сезонов."
+}
+
+Table news_posts {
+  id bigint [pk, increment]
+  author_id bigint [not null]
+  title varchar(250) [not null]
+  content text [not null]
+  image_path text
+  status varchar(20) [not null, default: 'PUBLISHED']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (status, created_at)
+  }
+}
+
+Table comments {
+  id bigint [pk, increment]
+  post_id bigint [not null]
+  user_id bigint [not null]
+  content text [not null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (post_id, created_at)
+  }
+}
+
+Table reactions {
+  id bigint [pk, increment]
+  post_id bigint [not null]
+  user_id bigint [not null]
+  reaction_type varchar(20) [not null, default: 'LIKE']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (post_id, user_id) [unique]
+  }
+}
+
+Table notifications {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  notification_type varchar(50) [not null]
+  message text [not null]
+  target_path text
+  is_read boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id, is_read, created_at)
+  }
+}
+
+// Авторизация
+Ref: sessions.user_id > users.id
+
+// Игровые вечера и бронирования
+Ref: game_nights.host_id > users.id
+Ref: bookings.game_night_id > game_nights.id
+Ref: bookings.user_id > users.id
+Ref: booking_guests.booking_id > bookings.id
+
+// Партии и игровые результаты
+Ref: parties.game_night_id > game_nights.id
+Ref: parties.created_by > users.id
+Ref: party_players.party_id > parties.id
+Ref: party_players.user_id > users.id
+
+// Новости, комментарии и реакции
+Ref: news_posts.author_id > users.id
+Ref: comments.post_id > news_posts.id
+Ref: comments.user_id > users.id
+Ref: reactions.post_id > news_posts.id
+Ref: reactions.user_id > users.id
+
+// Уведомления
+Ref: notifications.user_id > users.id

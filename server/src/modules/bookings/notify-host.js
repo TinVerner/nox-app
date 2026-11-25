@@ -1,7 +1,7 @@
 import { prisma } from '../../shared/prisma.js'
 import { broadcastGames } from '../../realtime/games-ws.js'
 
-function nightLabel(night) {
+export function nightLabel(night) {
   const title = night?.title || 'вечер'
   if (!night?.startsAt) return title
   const when = new Date(night.startsAt).toLocaleString('ru-RU', {

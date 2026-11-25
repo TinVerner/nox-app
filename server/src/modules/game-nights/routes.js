@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
-import { lockNight, minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, promoteWaiting, PUBLIC_NIGHT, seasonIdFor, takenCounts } from './night.js'
+import { lockNight, minskDate, nightCancelBlocked, nightEditBlocked, nightExtras, nightJson, promoteWaiting, PUBLIC_NIGHT, takenCounts } from './night.js'
 
 const router = Router()
 // CANCELLED ставит только /cancel (с уведомлениями), DONE вручную запер бы будущий вечер.
@@ -14,13 +14,12 @@ router.get('/games', async (req, res) => {
   const staff = isHost(me)
   const items = await prisma.gameNight.findMany({
     orderBy: { startsAt: 'asc' },
-    include: { season: true },
   })
   const now = Date.now()
   const visible = staff
     ? items
     : items.filter((night) => {
-      if (!PUBLIC_NIGHT.has(night.status) || night.season?.status === 'CLOSED') return false
+      if (!PUBLIC_NIGHT.has(night.status)) return false
       if (me?.role === 'PLAYER' && night.startsAt.getTime() <= now) return false
       return true
     })
@@ -72,8 +71,6 @@ router.post('/games', async (req, res) => {
       capacity,
       format: req.body.format || req.body.kind || 'CLASSIC',
       status,
-      // Форма сезон не передаёт: без этого вечер не попадёт в рейтинг сезона.
-      seasonId: idParam(req.body.seasonId) || await seasonIdFor(startsAt),
       ...nightExtras(req.body),
     },
   })
@@ -116,7 +113,6 @@ router.patch('/games/:id', async (req, res) => {
     if (!HOST_STATUSES.has(req.body.status)) return res.status(400).json({ error: STATUS_ERROR })
     data.status = req.body.status
   }
-  if (data.startsAt) data.seasonId = await seasonIdFor(data.startsAt)
   Object.assign(data, nightExtras(req.body))
   const outcome = await prisma.$transaction(async (tx) => {
     await lockNight(tx, id)

@@ -1,19 +1,18 @@
 import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
-import { meOrNull } from '../auth/session.js'
-import { approvedBookingBlock } from '../sanctions/policy.js'
+import { isHost, meOrNull } from '../auth/session.js'
 import { lockNight, nightManageBlocked, promoteWaiting, PUBLIC_NIGHT, takenCounts } from '../game-nights/night.js'
 import { MIN_CONFIRMED } from '../results/calc.js'
 import { scoreOf } from '../results/score.js'
-import { bookingMessage, notifyHost } from './notify-host.js'
+import { bookingMessage, nightLabel, notifyHost } from './notify-host.js'
 
 const WAITLIST_SIZE = 4
 
 const router = Router()
 
 function bookingClosed(night, now = Date.now()) {
-  if (!PUBLIC_NIGHT.has(night.status) || night.season?.status === 'CLOSED') return true
+  if (!PUBLIC_NIGHT.has(night.status)) return true
   if (nightManageBlocked(night, now)) return true
   return Boolean(night.registrationDeadlineAt && night.registrationDeadlineAt.getTime() < now)
 }
@@ -24,11 +23,9 @@ router.post('/games/:id/book', async (req, res) => {
   if (me.role !== 'PLAYER') return res.status(403).json({ error: 'запись только для игроков' })
   const id = idParam(req.params.id)
   if (!id) return res.status(404).json({ error: 'игра не найдена' })
-  const blocked = await approvedBookingBlock(me.id)
-  if (blocked) return res.status(403).json({ error: 'запись закрыта' })
   const outcome = await prisma.$transaction(async (tx) => {
     await lockNight(tx, id)
-    const night = await tx.gameNight.findUnique({ where: { id }, include: { season: true } })
+    const night = await tx.gameNight.findUnique({ where: { id } })
     if (!night) return { httpStatus: 404, error: 'игра не найдена' }
     if (bookingClosed(night)) return { httpStatus: 403, error: 'запись закрыта' }
     const existing = await tx.booking.findUnique({
@@ -141,4 +138,101 @@ router.delete('/bookings/:id', async (req, res) => {
   await notifyHost(night, bookingMessage('cancel', me.displayName, night))
 })
 
+async function nightHasPublishedResults(nightId) {
+  const party = await prisma.party.findFirst({
+    where: { gameNightId: nightId, status: { in: ['PUBLISHED', 'DONE'] } },
+    select: { id: true },
+  })
+  return Boolean(party)
+}
+
+/** HOST: roster for a night (confirmed + waiting). */
+router.get('/games/:id/bookings', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
+  const id = idParam(req.params.id)
+  const night = id ? await prisma.gameNight.findUnique({ where: { id } }) : null
+  if (!night) return res.status(404).json({ error: 'игра не найдена' })
+  const bookings = await prisma.booking.findMany({
+    where: { gameNightId: id, status: { in: ['CONFIRMED', 'WAITING'] } },
+    orderBy: [{ status: 'asc' }, { updatedAt: 'asc' }, { id: 'asc' }],
+    include: { user: { select: { id: true, displayName: true } } },
+  })
+  const resultsPublished = await nightHasPublishedResults(id)
+  const manageBlocked = nightManageBlocked(night)
+  const canEditRoster = !manageBlocked && !resultsPublished
+  res.json({
+    gameId: night.id,
+    title: night.title,
+    startsAt: night.startsAt,
+    seats: night.capacity,
+    resultsPublished,
+    canEditRoster,
+    bookings: bookings.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      nick: row.user?.displayName || 'игрок',
+      status: row.status,
+    })),
+  })
+})
+
+/** HOST: remove a confirmed/waiting player from the night roster. */
+router.delete('/games/:id/bookings/:bookingId', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!isHost(me)) return res.status(403).json({ error: 'только ведущий' })
+  const nightId = idParam(req.params.id)
+  const bookingId = idParam(req.params.bookingId)
+  if (!nightId || !bookingId) return res.status(404).json({ error: 'не найдено' })
+  const reason = String(req.body?.reason ?? '').trim()
+  if (!reason) return res.status(400).json({ error: 'укажите причину снятия' })
+  const found = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { night: true, user: { select: { id: true, displayName: true } } },
+  })
+  if (!found || found.gameNightId !== nightId) return res.status(404).json({ error: 'не найдено' })
+  if (found.status === 'CANCELLED') return res.status(409).json({ error: 'запись уже отменена' })
+  const blocked = nightManageBlocked(found.night)
+  if (blocked) return res.status(403).json({ error: blocked })
+  if (await nightHasPublishedResults(nightId)) {
+    return res.status(403).json({ error: 'нельзя снимать после публикации результатов' })
+  }
+  const cancellationReason = `снят ведущим: ${reason}`
+  const outcome = await prisma.$transaction(async (tx) => {
+    await lockNight(tx, nightId)
+    const booking = await tx.booking.findUnique({ where: { id: bookingId }, include: { night: true } })
+    if (!booking || booking.gameNightId !== nightId) return { httpStatus: 404, error: 'не найдено' }
+    if (booking.status === 'CANCELLED') return { httpStatus: 409, error: 'запись уже отменена' }
+    if (nightManageBlocked(booking.night)) {
+      return { httpStatus: 403, error: nightManageBlocked(booking.night) }
+    }
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason },
+    })
+    if (booking.status === 'CONFIRMED') await promoteWaiting(tx, booking.night)
+    return { booking }
+  })
+  if (outcome.error) return res.status(outcome.httpStatus).json({ error: outcome.error })
+  const label = nightLabel(found.night)
+  await prisma.notification.create({
+    data: {
+      userId: found.userId,
+      notificationType: 'BOOKING',
+      message: `Вас сняли с записи на вечер «${label}». Причина: ${reason}`,
+      targetPath: '/bookings',
+    },
+  })
+  const taken = await takenCounts([nightId])
+  res.json({
+    ok: true,
+    gameId: nightId,
+    taken: taken.get(nightId) || 0,
+    removed: {
+      id: found.id,
+      userId: found.userId,
+      nick: found.user?.displayName || 'игрок',
+    },
+  })
+})
 export default router

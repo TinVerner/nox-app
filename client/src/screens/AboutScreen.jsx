@@ -18,7 +18,7 @@ export default function AboutScreen({ onSchedule }) {
       <article className="about-hero">
         <div className="about-hero__copy">
           <h2>Игровые вечера в Минске</h2>
-          <p>Открытые столы, обучающие вечера и турниры. Формат, время и стоимость участия указаны в расписании.</p>
+          <p>Открытые столы и обучающие вечера. Формат, время и стоимость участия указаны в расписании.</p>
           <div className="about-hero__actions">
             <button type="button" className="btn-primary" onClick={onSchedule}>Вечера клуба</button>
           </div>

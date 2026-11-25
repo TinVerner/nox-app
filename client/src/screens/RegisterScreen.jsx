@@ -9,7 +9,7 @@ export default function RegisterScreen({ email, nick, password, passwordAgain, e
         <div>
           <p className="eyebrow">Новый игрок</p>
           <h2>Место за столом ещё свободно.</h2>
-          <p className="lede">Ник, почта и пароль. После входа откроются записи и рейтинг.</p>
+          <p className="lede">NOX — запись на вечера и рейтинг клуба в одном месте.</p>
         </div>
         <p className="muted">NOX · Минск</p>
       </div>
@@ -20,7 +20,7 @@ export default function RegisterScreen({ email, nick, password, passwordAgain, e
           <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input placeholder="ник" value={nick} onChange={(e) => setNick(e.target.value)} />
           <input placeholder="пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <input placeholder="пароль ещё раз" type="password" value={passwordAgain} onChange={(e) => setPasswordAgain(e.target.value)} />
+          <input placeholder="Повторите пароль" type="password" value={passwordAgain} onChange={(e) => setPasswordAgain(e.target.value)} />
           <button type="submit" disabled={busy}>{busy ? 'Регистрация…' : 'Создать'}</button>
           {error && <p className="error">{error}</p>}
         </form>

@@ -1,10 +1,35 @@
 import { useState } from 'react'
 
+function formatWinRate(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—'
+  const n = Number(value)
+  return Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`
+}
+
+function RoleWinLine({ byRole }) {
+  if (!byRole?.length) return <span className="muted">нет партий с ролями</span>
+  return (
+    <span className="rating-roles">
+      {byRole.map((row) => (
+        <span key={row.role} className="rating-role-chip">
+          {row.label} {formatWinRate(row.winRate)}
+          <span className="muted"> ({row.wins}/{row.games})</span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export default function RatingScreen({ rating }) {
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState({})
   const listed = rating.filter((row) => Number(row.points) !== 0)
   const top = listed.slice(0, 3)
   const rest = listed.slice(3)
+
+  function toggle(id) {
+    setExpanded((map) => ({ ...map, [id]: !map[id] }))
+  }
 
   return (
     <section className="screen">
@@ -15,7 +40,11 @@ export default function RatingScreen({ rating }) {
       </div>
       {open && (
         <div className="panel stack explain">
-          <p>Очки игрока — сумма очков, которые ведущий внёс в результатах вечеров. Число игр — сколько таких результатов есть у ника. Игроки с нулём очков в таблицу не попадают.</p>
+          <p>
+            Очки игрока — сумма очков из опубликованных результатов вечеров. Число игр — сколько таких партий
+            (пропуски SKIPPED не считаются). Win% — доля побед по стороне роли: мирные и шериф выигрывают с городом,
+            мафия и дон — с мафией. В таблице — win% по ролям.
+          </p>
           <button type="button" className="btn-secondary btn-s" onClick={() => setOpen(false)}>Закрыть</button>
         </div>
       )}
@@ -28,8 +57,12 @@ export default function RatingScreen({ rating }) {
               <article key={row.id} className={`podium-card podium-card--${index + 1}`}>
                 <p className="podium-place">{index + 1}</p>
                 <h2 className="podium-nick">{row.nick}</h2>
-                {row.rank ? <p className="muted">{row.rank}</p> : null}
                 <p className="muted">{row.points} очков · игр {row.games}</p>
+                <p className="rating-win">{formatWinRate(row.winRate)} побед</p>
+                <button type="button" className="btn-ghost btn-s" onClick={() => toggle(row.id)}>
+                  {expanded[row.id] ? 'Скрыть роли' : 'По ролям'}
+                </button>
+                {expanded[row.id] ? <RoleWinLine byRole={row.byRole} /> : null}
               </article>
             ))}
           </div>
@@ -40,10 +73,16 @@ export default function RatingScreen({ rating }) {
                   <span className="muted">{index + 4}</span>
                   <span className="rating-nick">
                     <span>{row.nick}</span>
-                    {row.rank ? <span className="muted">{row.rank}</span> : null}
+                    {expanded[row.id] ? <RoleWinLine byRole={row.byRole} /> : null}
                   </span>
-                  <span>{row.points} очков</span>
-                  <span className="muted">игр {row.games}</span>
+                  <span className="rating-meta">
+                    <span>{row.points} очков</span>
+                    <span className="muted">игр {row.games}</span>
+                    <span className="rating-win">{formatWinRate(row.winRate)}</span>
+                    <button type="button" className="btn-ghost btn-s" onClick={() => toggle(row.id)}>
+                      {expanded[row.id] ? '−' : '+'}
+                    </button>
+                  </span>
                 </article>
               ))}
             </div>

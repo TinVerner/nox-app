@@ -27,7 +27,7 @@ npm run dev
 
 Vite открывает [http://localhost:5173](http://localhost:5173). Запросы к API идут с `credentials: 'include'`.
 
-Сезон «Осень 2026», если сезонов ещё нет, создаётся при первом `GET /api/seasons` и скриптом `node ensure-season.js` из `server/`.
+Рейтинг клуба глобальный: очки считаются по всем опубликованным партиям без сезонного разреза.
 
 ## Docker
 

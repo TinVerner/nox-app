@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 import Modal from '../components/Modal'
-import { rankLabel } from '../ranks'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -27,7 +26,6 @@ export default function PlayersScreen({ onOpen }) {
           nick: member.nick,
           role: member.role,
           rating: byNick.get(member.nick) || null,
-          rank: member.rank,
           bonus: member.bonus,
         })))
       })
@@ -65,7 +63,7 @@ export default function PlayersScreen({ onOpen }) {
     <section className="screen">
       <p className="eyebrow">Ведущий</p>
       <h1>Игроки</h1>
-      <p className="lede">Список участников и корректировка бонусов. Подтверждение рангов — в заявках.</p>
+      <p className="lede">Список участников и корректировка бонусов.</p>
       {rows === null ? null : rows.length === 0 ? (
         <p className="muted">пусто</p>
       ) : (
@@ -73,7 +71,7 @@ export default function PlayersScreen({ onOpen }) {
           {rows.map((row) => (
             <article key={row.id} className="member-card">
               <button type="button" className="btn-ghost btn-s" onClick={() => onOpen(row.id)}>{row.nick}</button>
-              <p>{ROLE[row.role] || row.role}{rankLabel(row.rank) ? ` · ${rankLabel(row.rank)}` : ''}</p>
+              <p>{ROLE[row.role] || row.role}</p>
               <p>бонусы: {row.bonus == null ? '—' : row.bonus}</p>
               {row.rating ? (
                 <p>{row.rating.points} очков, игр {row.rating.games}</p>

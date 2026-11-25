@@ -9,13 +9,8 @@ import bookingRoutes from './modules/bookings/routes.js'
 import resultRoutes from './modules/results/routes.js'
 import pointRuleRoutes from './modules/point-rules/routes.js'
 import ratingRoutes from './modules/rating/routes.js'
-import seasonRoutes from './modules/seasons/routes.js'
 import memberRoutes from './modules/members/routes.js'
-import rankRoutes from './modules/ranks/routes.js'
-import sanctionRoutes from './modules/sanctions/routes.js'
 import notificationRoutes from './modules/notifications/routes.js'
-import catalogRoutes from './modules/catalog/routes.js'
-import eventRoutes from './modules/events/routes.js'
 import excelRoutes from './modules/excel/routes.js'
 
 export function createApp() {
@@ -37,13 +32,8 @@ export function createApp() {
   app.use('/api', resultRoutes)
   app.use('/api', pointRuleRoutes)
   app.use('/api', ratingRoutes)
-  app.use('/api', seasonRoutes)
   app.use('/api', memberRoutes)
-  app.use('/api', rankRoutes)
-  app.use('/api', sanctionRoutes)
   app.use('/api', notificationRoutes)
-  app.use('/api', catalogRoutes)
-  app.use('/api', eventRoutes)
   app.use('/api', excelRoutes)
   return app
 }

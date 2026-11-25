@@ -19,22 +19,17 @@ import BookingsScreen from './screens/BookingsScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import ResultsScreen from './screens/ResultsScreen'
 import PlayedScreen from './screens/PlayedScreen'
-import SeasonsScreen from './screens/SeasonsScreen'
 import NotFoundScreen from './screens/NotFoundScreen'
-import SanctionsScreen from './screens/SanctionsScreen'
 import PointRulesScreen from './screens/PointRulesScreen'
 import NoticesScreen from './screens/NoticesScreen'
-import RanksScreen from './screens/RanksScreen'
 import AboutScreen from './screens/AboutScreen'
-import CatalogScreen from './screens/CatalogScreen'
-import EventsScreen from './screens/EventsScreen'
 import ExcelScreen from './screens/ExcelScreen'
 import Footer from './components/Footer'
 
 const KNOWN_SCREENS = new Set([
   'home', 'games', 'rating', 'news', 'users', 'members', 'players', 'member',
-  'bookings', 'profile', 'results', 'played', 'seasons', 'overview', 'admin', 'login', 'register',
-  'sanctions', 'points', 'notices', 'ranks', 'about', 'catalog', 'events',
+  'bookings', 'profile', 'results', 'played', 'overview', 'admin', 'login', 'register',
+  'points', 'notices', 'about',
   'excel',
 ])
 
@@ -321,6 +316,9 @@ function App() {
             onUpdate={updateGame}
             onCancelNight={cancelNight}
             onDeleteNight={deleteNight}
+            onTaken={(id, taken) => setGames((list) => (list || []).map((game) => (
+              Number(game.id) === Number(id) ? { ...game, taken } : game
+            )))}
             onLogin={() => go('login')}
             onResults={(game) => { setResultsNightId(game.id); go('results') }}
           />
@@ -363,17 +361,12 @@ function App() {
         {screen === 'played' && me && (shell === 'host' || shell === 'player') && (
           <PlayedScreen focusId={playedFocusId} />
         )}
-        {screen === 'seasons' && shell === 'host' && <SeasonsScreen />}
-        {screen === 'sanctions' && shell === 'admin' && <SanctionsScreen />}
         {screen === 'excel' && shell === 'admin' && <ExcelScreen />}
         {screen === 'points' && shell === 'host' && <PointRulesScreen />}
         {screen === 'notices' && <NoticesScreen />}
-        {screen === 'ranks' && me && <RanksScreen me={me} />}
         {screen === 'about' && (
           <AboutScreen onSchedule={() => go('games')} />
         )}
-        {screen === 'catalog' && me && <CatalogScreen me={me} />}
-        {screen === 'events' && me && <EventsScreen me={me} />}
         {screen === 'login' && (
           <LoginScreen
             email={email}

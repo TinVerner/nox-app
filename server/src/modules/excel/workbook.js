@@ -124,7 +124,6 @@ export async function buildClubWorkbook() {
     { header: 'id', key: 'id', width: 8 },
     { header: 'hostEmail', key: 'hostEmail', width: 28 },
     { header: 'format', key: 'format', width: 16 },
-    { header: 'seasonId', key: 'seasonId', width: 10 },
     { header: 'title', key: 'title', width: 28 },
     { header: 'description', key: 'description', width: 28 },
     { header: 'startsAt', key: 'startsAt', width: 24 },
@@ -138,7 +137,6 @@ export async function buildClubWorkbook() {
       id: night.id,
       hostEmail: night.host.email,
       format: night.format,
-      seasonId: night.seasonId ?? '',
       title: night.title,
       description: night.description || '',
       startsAt: night.startsAt.toISOString(),
@@ -263,19 +261,9 @@ export async function importClubWorkbook(buffer, adminId) {
       summary.game_nights.skipped += 1
       continue
     }
-    const seasonId = asInt(cell(row, nightsSheet.headers, 'seasonId'))
-    if (seasonId != null) {
-      const season = await prisma.season.findUnique({ where: { id: seasonId } })
-      if (!season) {
-        summary.errors.push(`game_nights ${title}: сезон ${seasonId} не найден`)
-        summary.game_nights.skipped += 1
-        continue
-      }
-    }
     const data = {
       hostId,
       format,
-      seasonId: seasonId ?? null,
       title,
       description: asText(cell(row, nightsSheet.headers, 'description')) || null,
       startsAt,

@@ -4,7 +4,6 @@ import Modal from '../components/Modal'
 
 const FORMATS = [
   { id: 'CLASSIC', label: 'Классика' },
-  { id: 'TOURNAMENT', label: 'Турнир' },
   { id: 'NOVICE', label: 'Новички' },
 ]
 const ROLES = [

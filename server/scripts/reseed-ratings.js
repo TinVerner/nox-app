@@ -168,11 +168,6 @@ async function main() {
   }) || await prisma.user.findFirst({ where: { role: 'HOST' }, orderBy: { id: 'asc' } })
   if (!host) throw new Error('no HOST user found')
 
-  let season = await prisma.season.findFirst({ where: { status: 'OPEN' }, orderBy: { startsOn: 'desc' } })
-  if (!season) {
-    season = await prisma.season.findFirst({ orderBy: { startsOn: 'desc' } })
-  }
-
   const preserve = await prisma.gameNight.findFirst({
     where: { title: PRESERVE_TITLE },
     include: { parties: { where: { status: { in: ['PUBLISHED', 'DONE'] } }, select: { id: true, status: true } } },
@@ -205,7 +200,6 @@ async function main() {
       night = await prisma.gameNight.create({
         data: {
           hostId: host.id,
-          seasonId: season?.id || null,
           title: def.title,
           description: 'Опубликованный вечер для рейтинга (seed).',
           format: 'CLASSIC',

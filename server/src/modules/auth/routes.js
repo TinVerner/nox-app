@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../../shared/prisma.js'
-import { rankCodes } from '../ranks/defs.js'
+import { playerGameStats } from '../rating/list.js'
 import { userJson } from '../users/user-json.js'
 import { clearSessionCookie, findUserByEmail, meOrNull, normalizeEmail, openSession, passwordMeetsRules } from './session.js'
 
@@ -10,8 +10,14 @@ const router = Router()
 router.get('/me', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'не вошла' })
-  const codes = await rankCodes([me.id])
-  res.json(userJson(me, codes.get(me.id)))
+  res.json(userJson(me))
+})
+
+router.get('/me/stats', async (req, res) => {
+  const me = await meOrNull(req)
+  if (!me) return res.status(401).json({ error: 'не вошла' })
+  const stats = await playerGameStats(me.id)
+  res.json(stats || { points: 0, games: 0, wins: 0, winRate: null, byRole: [] })
 })
 
 router.patch('/me', async (req, res) => {
@@ -32,8 +38,7 @@ router.patch('/me', async (req, res) => {
       where: { id: me.id },
       data: { displayName: nick, email, phone: phone || null },
     })
-    const codes = await rankCodes([user.id])
-    res.json(userJson(user, codes.get(user.id)))
+    res.json(userJson(user))
   } catch (error) {
     if (error.code === 'P2002') return res.status(409).json({ error: 'email занят' })
     throw error
@@ -98,8 +103,7 @@ router.post('/login', async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'неверный email или пароль' })
   if (user.status === 'BLOCKED') return res.status(403).json({ error: 'аккаунт заблокирован' })
   await openSession(res, user.id)
-  const codes = await rankCodes([user.id])
-  res.json(userJson(user, codes.get(user.id)))
+  res.json(userJson(user))
 })
 
 export default router

@@ -22,13 +22,32 @@
 .podium-card--2 .podium-nick { font-size: 26px; }
 .podium-card--3 .podium-nick { font-size: 22px; }
 
+.rating-win {
+  margin: 4px 0;
+  color: var(--accent);
+  font-family: var(--condensed);
+  letter-spacing: 0.04em;
+}
+
+.rating-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.rating-role-chip {
+  color: var(--text);
+}
+
 .rating-rows { display: flex; flex-direction: column; }
 
 .rating-row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
   gap: 16px;
-  align-items: center;
+  align-items: start;
   padding: 14px 4px;
   border-bottom: 1px solid var(--line);
 }
@@ -39,6 +58,16 @@
   gap: 2px;
 }
 
+.rating-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 @media (max-width: 900px) {
   .podium { grid-template-columns: 1fr; }
+  .rating-row { grid-template-columns: 36px minmax(0, 1fr); }
+  .rating-meta { justify-content: flex-start; }
 }

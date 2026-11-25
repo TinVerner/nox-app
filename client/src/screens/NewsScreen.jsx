@@ -181,7 +181,7 @@ export default function NewsScreen({ me, news, onDeleted, onLogin }) {
                 <span className="news-heart__count">{count}</span>
               </button>
               <button type="button" className="btn-ghost btn-s" onClick={() => setOpenId(item.id)}>
-                Комментарий
+                Комментарии
               </button>
               {isAdmin ? (
                 <button type="button" className="btn-ghost btn-s" onClick={() => removePost(item)}>

@@ -3,7 +3,6 @@ import { apiFetch } from '../api'
 
 const KIND_LABEL = {
   CLASSIC: 'Классика',
-  TOURNAMENT: 'Турнир',
   NOVICE: 'Новички',
 }
 

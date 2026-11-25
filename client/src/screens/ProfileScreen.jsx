@@ -10,6 +10,12 @@ function passwordMeetsRules(password) {
   )
 }
 
+function formatWinRate(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—'
+  const n = Number(value)
+  return Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`
+}
+
 export default function ProfileScreen({ me, onAccount }) {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState(me?.email || '')
@@ -24,6 +30,7 @@ export default function ProfileScreen({ me, onAccount }) {
   const [passwordError, setPasswordError] = useState('')
   const [passwordNote, setPasswordNote] = useState('')
   const [changing, setChanging] = useState(false)
+  const [stats, setStats] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -37,6 +44,14 @@ export default function ProfileScreen({ me, onAccount }) {
         setLogin(data.login || data.email || '')
       })
       .catch(() => {})
+    apiFetch('/api/me/stats')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled) setStats(data)
+      })
+      .catch(() => {
+        if (!cancelled) setStats(null)
+      })
     return () => {
       cancelled = true
     }
@@ -146,6 +161,47 @@ export default function ProfileScreen({ me, onAccount }) {
           ) : null}
         </div>
       </header>
+
+      <div className="profile-stats panel stack">
+        <div className="profile-card__header">
+          <h2 className="profile-card__title">Игровая статистика</h2>
+          <p className="profile-card__subtitle">Опубликованные партии; пропуски не считаются</p>
+        </div>
+        {!stats ? (
+          <p className="muted">загрузка…</p>
+        ) : stats.games === 0 ? (
+          <p className="muted">пока нет сыгранных партий в рейтинге</p>
+        ) : (
+          <>
+            <div className="profile-stats__row">
+              <span>Игр</span>
+              <strong>{stats.games}</strong>
+            </div>
+            <div className="profile-stats__row">
+              <span>Очки</span>
+              <strong>{stats.points}</strong>
+            </div>
+            <div className="profile-stats__row">
+              <span>Win%</span>
+              <strong className="profile-stats__accent">{formatWinRate(stats.winRate)}</strong>
+            </div>
+            {stats.byRole?.length ? (
+              <div className="profile-stats__roles">
+                <p className="muted">По ролям</p>
+                {stats.byRole.map((row) => (
+                  <div key={row.role} className="profile-stats__row">
+                    <span>{row.label}</span>
+                    <strong>
+                      {formatWinRate(row.winRate)}
+                      <span className="muted"> · {row.wins}/{row.games}</span>
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
 
       <div className="profile-grid">
         <form className="profile-card" onSubmit={saveAccount}>

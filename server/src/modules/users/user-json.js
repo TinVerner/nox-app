@@ -1,6 +1,6 @@
 import { num } from '../../shared/input.js'
 
-export function userJson(user, rankCode) {
+export function userJson(user) {
   return {
     id: user.id,
     email: user.email,
@@ -9,7 +9,6 @@ export function userJson(user, rankCode) {
     phone: user.phone || '',
     role: user.role,
     blocked: user.status === 'BLOCKED',
-    rank: rankCode || null,
     bonus: num(user.bonusBalance),
   }
 }

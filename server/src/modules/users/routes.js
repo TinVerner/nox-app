@@ -2,7 +2,6 @@ import { Router } from 'express'
 import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
-import { rankCodes } from '../ranks/defs.js'
 import { userJson } from './user-json.js'
 
 const router = Router()
@@ -21,8 +20,7 @@ router.get('/users', async (req, res) => {
     ]
   }
   const users = await prisma.user.findMany({ where, orderBy: { displayName: 'asc' } })
-  const codes = await rankCodes(users.map((user) => user.id))
-  res.json(users.map((user) => userJson(user, codes.get(user.id))))
+  res.json(users.map((user) => userJson(user)))
 })
 
 router.patch('/users/:id/role', async (req, res) => {
@@ -36,8 +34,7 @@ router.patch('/users/:id/role', async (req, res) => {
   const user = id ? await prisma.user.findUnique({ where: { id } }) : null
   if (!user) return res.status(404).json({ error: 'не найдено' })
   const updated = await prisma.user.update({ where: { id }, data: { role } })
-  const codes = await rankCodes([id])
-  res.json(userJson(updated, codes.get(id)))
+  res.json(userJson(updated))
 })
 
 router.patch('/users/:id/bonus', async (req, res) => {
@@ -50,8 +47,7 @@ router.patch('/users/:id/bonus', async (req, res) => {
   const bonus = Number(req.body.bonus)
   if (!Number.isFinite(bonus)) return res.status(400).json({ error: 'нужен баланс' })
   const updated = await prisma.user.update({ where: { id }, data: { bonusBalance: bonus } })
-  const codes = await rankCodes([id])
-  res.json(userJson(updated, codes.get(id)))
+  res.json(userJson(updated))
 })
 
 router.patch('/users/:id/block', async (req, res) => {
@@ -65,8 +61,7 @@ router.patch('/users/:id/block', async (req, res) => {
     where: { id },
     data: { status: req.body.blocked ? 'BLOCKED' : 'ACTIVE' },
   })
-  const codes = await rankCodes([id])
-  res.json(userJson(updated, codes.get(id)))
+  res.json(userJson(updated))
 })
 
 export default router

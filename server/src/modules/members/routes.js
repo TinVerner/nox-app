@@ -3,26 +3,21 @@ import { prisma } from '../../shared/prisma.js'
 import { idParam } from '../../shared/input.js'
 import { isHost, meOrNull } from '../auth/session.js'
 import { num } from '../../shared/input.js'
-import { ensureRanks, rankCodes } from '../ranks/defs.js'
-import { ratingList } from '../rating/list.js'
-import { ensureAutumn } from '../seasons/ensure-autumn.js'
+import { playerGameStats } from '../rating/list.js'
 
 const router = Router()
 
 router.get('/members', async (req, res) => {
   const me = await meOrNull(req)
   if (!isHost(me)) return res.status(403).json({ error: 'нельзя' })
-  await ensureRanks()
   const members = await prisma.user.findMany({
     where: { role: { not: 'ADMIN' } },
     orderBy: { displayName: 'asc' },
   })
-  const codes = await rankCodes(members.map((member) => member.id))
   res.json(members.map((member) => ({
     id: member.id,
     nick: member.displayName,
     role: member.role,
-    rank: codes.get(member.id) || null,
     bonus: num(member.bonusBalance),
   })))
 })
@@ -33,12 +28,7 @@ router.get('/members/:id', async (req, res) => {
   const id = idParam(req.params.id)
   const user = id ? await prisma.user.findUnique({ where: { id } }) : null
   if (!user || user.role === 'ADMIN') return res.status(404).json({ error: 'не найдено' })
-  const codes = await rankCodes([user.id])
-  const overall = (await ratingList()).find((item) => item.id === user.id) || null
-  const seasons = await ensureAutumn(prisma)
-  const current = seasons.find((season) => season.status !== 'CLOSED') || null
-  const seasonRows = current ? await ratingList(current.id) : []
-  const season = seasonRows.find((item) => item.id === user.id) || null
+  const overall = await playerGameStats(user.id)
   const bookings = await prisma.booking.findMany({
     where: { userId: user.id, status: { not: 'CANCELLED' } },
     orderBy: { createdAt: 'desc' },
@@ -57,15 +47,14 @@ router.get('/members/:id', async (req, res) => {
     id: user.id,
     nick: user.displayName,
     role: user.role,
-    rank: codes.get(user.id) || null,
     bonus: num(user.bonusBalance),
-    rating: overall ? { points: overall.points, games: overall.games } : null,
-    season: current
+    rating: overall
       ? {
-        id: current.id,
-        name: current.name,
-        points: season?.points ?? 0,
-        games: season?.games ?? 0,
+        points: overall.points,
+        games: overall.games,
+        wins: overall.wins,
+        winRate: overall.winRate,
+        byRole: overall.byRole,
       }
       : null,
     recentNights: nights,

@@ -9,7 +9,7 @@ export default function LoginScreen({ email, password, error, busy, setEmail, se
         <div>
           <p className="eyebrow">За одним столом</p>
           <h2>Город засыпает. Игра начинается.</h2>
-          <p className="lede">Ваши вечера, результаты и место в рейтинге клуба — в одном кабинете.</p>
+          <p className="lede">Вечера, результаты и ваш рейтинг в клубе — всё здесь.</p>
         </div>
         <p className="muted">NOX · Минск</p>
       </div>

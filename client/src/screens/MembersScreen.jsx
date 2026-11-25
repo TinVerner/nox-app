@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
-import { rankLabel } from '../ranks'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -47,7 +46,7 @@ export default function MembersScreen({ onOpen }) {
           {visible.map((member) => (
             <button key={member.id} type="button" className="member-card" onClick={() => onOpen(member.id)}>
               <h2>{member.nick}</h2>
-              <p>{ROLE[member.role] || member.role}{rankLabel(member.rank) ? ` · ${rankLabel(member.rank)}` : ''}</p>
+              <p>{ROLE[member.role] || member.role}</p>
             </button>
           ))}
         </div>

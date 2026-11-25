@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import Modal from '../components/Modal'
 import CancelBookingDialog from '../components/CancelBookingDialog'
+import RemoveRosterDialog from '../components/RemoveRosterDialog'
 import { apiFetch } from '../api'
 
 const FILTERS = [
   { id: 'ALL', label: 'Все' },
   { id: 'CLASSIC', label: 'Классика' },
-  { id: 'TOURNAMENT', label: 'Турнир' },
   { id: 'NOVICE', label: 'Новички' },
 ]
 
@@ -46,7 +46,6 @@ const STATUS_LABEL = {
 
 const KIND_LABEL = {
   CLASSIC: 'Классика',
-  TOURNAMENT: 'Турнир',
   NOVICE: 'Новички',
 }
 
@@ -240,7 +239,6 @@ function GameModal({ game, onClose, onSave }) {
         <input type="number" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} placeholder="мест" required />
         <select value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="CLASSIC">Классика</option>
-          <option value="TOURNAMENT">Турнир</option>
           <option value="NOVICE">Новички</option>
         </select>
         <input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="цена" required />
@@ -257,7 +255,12 @@ function GameModal({ game, onClose, onSave }) {
   )
 }
 
-export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onDeleteNight, onLogin, onResults }) {
+const STATUS_BOOKING = {
+  CONFIRMED: 'подтверждён',
+  WAITING: 'ожидание',
+}
+
+export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate, onUpdate, onCancelNight, onDeleteNight, onLogin, onResults, onTaken }) {
   const [kindFilter, setKindFilter] = useState('ALL')
   const [weekFilter, setWeekFilter] = useState('ALL')
   const [pending, setPending] = useState(null)
@@ -277,6 +280,12 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
   const [nightDeleting, setNightDeleting] = useState(false)
   const [nightDeleteError, setNightDeleteError] = useState('')
   const [nightDeleteDone, setNightDeleteDone] = useState(false)
+  const [rosterGame, setRosterGame] = useState(null)
+  const [roster, setRoster] = useState(null)
+  const [rosterError, setRosterError] = useState('')
+  const [rosterBusy, setRosterBusy] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState(null)
+  const [removeError, setRemoveError] = useState('')
   const staff = me?.role === 'HOST'
   const eyebrow = staff ? 'Вечера' : 'Расписание'
   const title = me?.role === 'HOST' ? 'Управление ночами' : me ? 'Запись на вечер' : 'Вечера клуба'
@@ -383,6 +392,72 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
     }
   }
 
+  async function openRoster(game) {
+    setRosterError('')
+    setRoster(null)
+    setRosterGame(game)
+    try {
+      const res = await apiFetch('/api/games/' + game.id + '/bookings')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRosterError(data.error || 'не вышло')
+        return
+      }
+      setRoster(data)
+    } catch {
+      setRosterError('не вышло')
+    }
+  }
+
+  function closeRoster() {
+    if (rosterBusy) return
+    setRemoveTarget(null)
+    setRemoveError('')
+    setRosterGame(null)
+    setRoster(null)
+    setRosterError('')
+  }
+
+  function askRemoveFromRoster(row) {
+    if (rosterBusy || !rosterGame || !roster?.canEditRoster) return
+    setRemoveError('')
+    setRemoveTarget(row)
+  }
+
+  async function confirmRemoveFromRoster(reason) {
+    if (rosterBusy || !rosterGame || !removeTarget || !roster?.canEditRoster) return
+    setRosterBusy(true)
+    setRemoveError('')
+    setRosterError('')
+    try {
+      const res = await apiFetch('/api/games/' + rosterGame.id + '/bookings/' + removeTarget.id, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRemoveError(data.error || 'не вышло')
+        return
+      }
+      if (typeof data.taken === 'number') onTaken?.(rosterGame.id, data.taken)
+      const removedId = removeTarget.id
+      setRemoveTarget(null)
+      const refreshed = await apiFetch('/api/games/' + rosterGame.id + '/bookings')
+      const next = await refreshed.json().catch(() => null)
+      if (refreshed.ok && next) setRoster(next)
+      else {
+        setRoster((current) => current
+          ? { ...current, bookings: (current.bookings || []).filter((item) => item.id !== removedId) }
+          : current)
+      }
+    } catch {
+      setRemoveError('не вышло')
+    } finally {
+      setRosterBusy(false)
+    }
+  }
+
   async function confirmCancel() {
     if (canceling || !cancelTarget) return
     const bookingId = bookingByGame[cancelTarget.id]
@@ -475,6 +550,9 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
               {game.price > 0 && <span className="price">{game.price} BYN</span>}
               {staff && canEditNight(game) && (
                 <button type="button" className="btn-secondary btn-s" onClick={() => setEditor({ mode: 'edit', game })}>Изменить</button>
+              )}
+              {staff && canManageNight(game) && (
+                <button type="button" className="btn-ghost btn-s" onClick={() => openRoster(game)}>Участники</button>
               )}
               {staff && canOpenResults(game) && (
                 <button type="button" className="btn-primary btn-s" onClick={() => onResults(game)}>
@@ -615,6 +693,57 @@ export default function GamesScreen({ me, games, reloadKey = 0, onBook, onCreate
           game={editor.mode === 'edit' ? editor.game : null}
           onClose={() => setEditor(null)}
           onSave={(payload) => (editor.mode === 'edit' ? onUpdate(editor.game.id, payload) : onCreate(payload))}
+        />
+      )}
+      {rosterGame && (
+        <Modal title={rosterGame.title} eyebrow="Участники" onClose={closeRoster}>
+          {rosterError ? <p className="error">{rosterError}</p> : null}
+          {!roster ? (
+            <p className="muted">загрузка…</p>
+          ) : (
+            <>
+              <p className="muted">
+                {roster.bookings?.length || 0} в списке · мест {roster.seats}
+                {!roster.canEditRoster ? ' · снять нельзя (вечер начался или есть результаты)' : ''}
+              </p>
+              {!roster.bookings?.length ? (
+                <p className="muted">пока никого нет</p>
+              ) : (
+                <div className="stack night-roster">
+                  {roster.bookings.map((row) => (
+                    <div key={row.id} className="night-roster__row">
+                      <span>
+                        {row.nick}
+                        <span className="muted"> · {STATUS_BOOKING[row.status] || row.status}</span>
+                      </span>
+                      {roster.canEditRoster ? (
+                        <button
+                          type="button"
+                          className="btn-ghost btn-s"
+                          disabled={rosterBusy}
+                          onClick={() => askRemoveFromRoster(row)}
+                        >
+                          Снять
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          <div className="modal-actions">
+            <button type="button" className="btn-primary" onClick={closeRoster} disabled={rosterBusy}>Закрыть</button>
+          </div>
+        </Modal>
+      )}
+      {removeTarget && (
+        <RemoveRosterDialog
+          nick={removeTarget.nick}
+          busy={rosterBusy}
+          error={removeError}
+          onClose={() => { if (!rosterBusy) { setRemoveTarget(null); setRemoveError('') } }}
+          onConfirm={confirmRemoveFromRoster}
         />
       )}
     </section>

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
-import { rankLabel } from '../ranks'
 
 const ROLE = {
   PLAYER: 'игрок',
@@ -10,8 +9,13 @@ const ROLE = {
 
 const KIND = {
   CLASSIC: 'Классика',
-  TOURNAMENT: 'Турнир',
   NOVICE: 'Новички',
+}
+
+function formatWinRate(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—'
+  const n = Number(value)
+  return Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`
 }
 
 function when(iso) {
@@ -47,17 +51,25 @@ export default function MemberScreen({ memberId, onBack }) {
           <div className="panel member-panel">
             <p className="eyebrow">{ROLE[member.role] || member.role}</p>
             <h1>{member.nick}</h1>
-            {rankLabel(member.rank) ? <p>Ранг: {rankLabel(member.rank)}</p> : <p className="muted">ранг не присвоен</p>}
-            {member.rating ? (
-              <p>Всего: {member.rating.points} очков, игр {member.rating.games}</p>
+            {member.rating && member.rating.games > 0 ? (
+              <>
+                <p>
+                  Всего: {member.rating.points} очков, игр {member.rating.games}, win% {formatWinRate(member.rating.winRate)}
+                </p>
+                {member.rating.byRole?.length ? (
+                  <div className="stack">
+                    <p className="muted">По ролям</p>
+                    {member.rating.byRole.map((row) => (
+                      <p key={row.role}>
+                        {row.label}: {formatWinRate(row.winRate)} ({row.wins}/{row.games})
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </>
             ) : (
               <p className="muted">в общем рейтинге нет</p>
             )}
-            {member.season ? (
-              <p>
-                Сезон «{member.season.name}»: {member.season.points} очков, игр {member.season.games}
-              </p>
-            ) : null}
             {member.bonus != null ? <p className="muted">бонусы: {member.bonus}</p> : null}
           </div>
           <div className="panel stack">
