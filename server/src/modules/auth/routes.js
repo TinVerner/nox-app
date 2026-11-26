@@ -1,11 +1,14 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../../shared/prisma.js'
+import { normalizePhone, phoneIsValid } from '../../shared/input.js'
 import { playerGameStats } from '../rating/list.js'
 import { userJson } from '../users/user-json.js'
 import { clearSessionCookie, findUserByEmail, meOrNull, normalizeEmail, openSession, passwordMeetsRules } from './session.js'
 
 const router = Router()
+const EMPTY_STATS = { points: 0, games: 0, wins: 0, winRate: null, byRole: [] }
+const PHONE_ERROR = 'Некорректный телефон: укажи номер в формате +375 XX XXX XX XX'
 
 router.get('/me', async (req, res) => {
   const me = await meOrNull(req)
@@ -16,8 +19,10 @@ router.get('/me', async (req, res) => {
 router.get('/me/stats', async (req, res) => {
   const me = await meOrNull(req)
   if (!me) return res.status(401).json({ error: 'не вошла' })
+  // Player game stats are for PLAYER only (not ADMIN / HOST)
+  if (me.role !== 'PLAYER') return res.json(EMPTY_STATS)
   const stats = await playerGameStats(me.id)
-  res.json(stats || { points: 0, games: 0, wins: 0, winRate: null, byRole: [] })
+  res.json(stats || EMPTY_STATS)
 })
 
 router.patch('/me', async (req, res) => {
@@ -26,11 +31,11 @@ router.patch('/me', async (req, res) => {
   const nick = String(req.body.nick ?? '').trim()
   const email = normalizeEmail(req.body.email)
   const login = normalizeEmail(req.body.login ?? email)
-  const phone = String(req.body.phone ?? '').trim()
-  if (!nick || !email || !login) return res.status(400).json({ error: 'Заполни поля' })
+  const phone = normalizePhone(req.body.phone)
+  if (!nick || !email || !login) return res.status(400).json({ error: 'Заполните все поля.' })
   if (login !== email) return res.status(400).json({ error: 'Логин — это email для входа' })
   if (nick.length > 100) return res.status(400).json({ error: 'ник слишком длинный' })
-  if (phone.length > 30) return res.status(400).json({ error: 'телефон слишком длинный' })
+  if (!phoneIsValid(phone)) return res.status(400).json({ error: PHONE_ERROR })
   const taken = await findUserByEmail(email)
   if (taken && taken.id !== me.id) return res.status(409).json({ error: 'email занят' })
   try {
@@ -51,15 +56,17 @@ router.post('/me/password', async (req, res) => {
   const currentPassword = String(req.body.currentPassword ?? '')
   const newPassword = String(req.body.newPassword ?? '')
   const confirm = String(req.body.confirm ?? '')
-  if (!currentPassword || !newPassword || !confirm) return res.status(400).json({ error: 'Заполни поля' })
-  if (newPassword !== confirm) return res.status(400).json({ error: 'Пароли не совпали' })
+  if (!currentPassword || !newPassword || !confirm) {
+    return res.status(400).json({ error: 'Заполните все поля.' })
+  }
+  const currentOk = await bcrypt.compare(currentPassword, me.passwordHash)
+  if (!currentOk) return res.status(400).json({ error: 'Неверный текущий пароль' })
+  if (newPassword !== confirm) return res.status(400).json({ error: 'Пароли не совпадают.' })
   if (!passwordMeetsRules(newPassword)) {
     return res.status(400).json({
       error: 'Пароль не соответствует требованиям: минимум 8 символов, цифра, заглавная буква и спецсимвол',
     })
   }
-  const ok = await bcrypt.compare(currentPassword, me.passwordHash)
-  if (!ok) return res.status(400).json({ error: 'Неверный текущий пароль' })
   const passwordHash = await bcrypt.hash(newPassword, 10)
   await prisma.user.update({ where: { id: me.id }, data: { passwordHash } })
   res.json({ ok: true })

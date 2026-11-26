@@ -153,7 +153,7 @@ function App() {
     if (authLock.current) return
     setError('')
     if (!email.trim() || !password.trim()) {
-      setError('Заполни поля')
+      setError('Заполните все поля.')
       return
     }
     authLock.current = true
@@ -182,11 +182,11 @@ function App() {
     if (authLock.current) return
     setError('')
     if (!nick.trim() || !email.trim() || !password.trim() || !passwordAgain.trim()) {
-      setError('Заполни поля')
+      setError('Заполните все поля.')
       return
     }
     if (password !== passwordAgain) {
-      setError('Пароли не совпали')
+      setError('Пароли не совпадают.')
       return
     }
     if (!passwordMeetsRules(password)) {

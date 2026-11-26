@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 
-function passwordMeetsRules(password) {
-  return (
-    password.length >= 8 &&
-    /\d/.test(password) &&
-    /[A-ZА-ЯЁ]/.test(password) &&
-    /[^0-9A-Za-zА-Яа-яЁё]/.test(password)
-  )
+const PHONE_ERROR = 'Некорректный телефон: укажи номер в формате +375 XX XXX XX XX'
+
+/** Optional phone: empty OK; otherwise exact BY mobile +375 + 9 digits. */
+function normalizePhone(value) {
+  return String(value ?? '').trim().replace(/[\s()-]/g, '')
+}
+
+function phoneIsValid(value) {
+  const compact = normalizePhone(value)
+  if (!compact) return true
+  return /^\+375\d{9}$/.test(compact)
 }
 
 function formatWinRate(value) {
@@ -22,6 +26,7 @@ export default function ProfileScreen({ me, onAccount }) {
   const [nick, setNick] = useState(me?.nick || '')
   const [login, setLogin] = useState(me?.login || me?.email || '')
   const [accountError, setAccountError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   const [accountNote, setAccountNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -31,6 +36,7 @@ export default function ProfileScreen({ me, onAccount }) {
   const [passwordNote, setPasswordNote] = useState('')
   const [changing, setChanging] = useState(false)
   const [stats, setStats] = useState(null)
+  const showGameStats = me?.role === 'PLAYER'
 
   useEffect(() => {
     let cancelled = false
@@ -44,23 +50,26 @@ export default function ProfileScreen({ me, onAccount }) {
         setLogin(data.login || data.email || '')
       })
       .catch(() => {})
-    apiFetch('/api/me/stats')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (!cancelled) setStats(data)
-      })
-      .catch(() => {
-        if (!cancelled) setStats(null)
-      })
+    if (showGameStats) {
+      apiFetch('/api/me/stats')
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!cancelled) setStats(data)
+        })
+        .catch(() => {
+          if (!cancelled) setStats(null)
+        })
+    }
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [showGameStats])
 
   if (!me) return null
 
   function changeEmail(value) {
     setAccountError('')
+    setPhoneError('')
     setAccountNote('')
     setEmail(value)
     setLogin(value)
@@ -70,13 +79,18 @@ export default function ProfileScreen({ me, onAccount }) {
     event.preventDefault()
     if (saving) return
     setAccountError('')
+    setPhoneError('')
     setAccountNote('')
     if (!nick.trim() || !email.trim() || !login.trim()) {
-      setAccountError('Заполни поля')
+      setAccountError('Заполните все поля.')
       return
     }
     if (login.trim() !== email.trim()) {
       setAccountError('Логин должен совпадать с email')
+      return
+    }
+    if (!phoneIsValid(phone)) {
+      setPhoneError(PHONE_ERROR)
       return
     }
     setSaving(true)
@@ -84,11 +98,13 @@ export default function ProfileScreen({ me, onAccount }) {
       const response = await apiFetch('/api/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nick, email, phone, login }),
+        body: JSON.stringify({ nick, email, phone: normalizePhone(phone), login }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        setAccountError(data.error || 'не вышло')
+        const msg = data.error || 'не вышло'
+        if (typeof msg === 'string' && msg.includes('телефон')) setPhoneError(msg)
+        else setAccountError(msg)
         return
       }
       setPhone(data.phone || '')
@@ -111,15 +127,7 @@ export default function ProfileScreen({ me, onAccount }) {
     setPasswordError('')
     setPasswordNote('')
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Заполни поля')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Пароли не совпали')
-      return
-    }
-    if (!passwordMeetsRules(newPassword)) {
-      setPasswordError('Пароль не соответствует требованиям: минимум 8 символов, цифра, заглавная буква и спецсимвол')
+      setPasswordError('Заполните все поля.')
       return
     }
     setChanging(true)
@@ -162,46 +170,48 @@ export default function ProfileScreen({ me, onAccount }) {
         </div>
       </header>
 
-      <div className="profile-stats panel stack">
-        <div className="profile-card__header">
-          <h2 className="profile-card__title">Игровая статистика</h2>
-          <p className="profile-card__subtitle">Опубликованные партии; пропуски не считаются</p>
-        </div>
-        {!stats ? (
-          <p className="muted">загрузка…</p>
-        ) : stats.games === 0 ? (
-          <p className="muted">пока нет сыгранных партий в рейтинге</p>
-        ) : (
-          <>
-            <div className="profile-stats__row">
-              <span>Игр</span>
-              <strong>{stats.games}</strong>
-            </div>
-            <div className="profile-stats__row">
-              <span>Очки</span>
-              <strong>{stats.points}</strong>
-            </div>
-            <div className="profile-stats__row">
-              <span>Win%</span>
-              <strong className="profile-stats__accent">{formatWinRate(stats.winRate)}</strong>
-            </div>
-            {stats.byRole?.length ? (
-              <div className="profile-stats__roles">
-                <p className="muted">По ролям</p>
-                {stats.byRole.map((row) => (
-                  <div key={row.role} className="profile-stats__row">
-                    <span>{row.label}</span>
-                    <strong>
-                      {formatWinRate(row.winRate)}
-                      <span className="muted"> · {row.wins}/{row.games}</span>
-                    </strong>
-                  </div>
-                ))}
+      {showGameStats ? (
+        <div className="profile-stats panel stack">
+          <div className="profile-card__header">
+            <h2 className="profile-card__title">Игровая статистика</h2>
+            <p className="profile-card__subtitle">Опубликованные партии; пропуски не считаются</p>
+          </div>
+          {!stats ? (
+            <p className="muted">загрузка…</p>
+          ) : stats.games === 0 ? (
+            <p className="muted">пока нет сыгранных партий в рейтинге</p>
+          ) : (
+            <>
+              <div className="profile-stats__row">
+                <span>Игр</span>
+                <strong>{stats.games}</strong>
               </div>
-            ) : null}
-          </>
-        )}
-      </div>
+              <div className="profile-stats__row">
+                <span>Очки</span>
+                <strong>{stats.points}</strong>
+              </div>
+              <div className="profile-stats__row">
+                <span>Win%</span>
+                <strong className="profile-stats__accent">{formatWinRate(stats.winRate)}</strong>
+              </div>
+              {stats.byRole?.length ? (
+                <div className="profile-stats__roles">
+                  <p className="muted">По ролям</p>
+                  {stats.byRole.map((row) => (
+                    <div key={row.role} className="profile-stats__row">
+                      <span>{row.label}</span>
+                      <strong>
+                        {formatWinRate(row.winRate)}
+                        <span className="muted"> · {row.wins}/{row.games}</span>
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
 
       <div className="profile-grid">
         <form className="profile-card" onSubmit={saveAccount}>
@@ -215,8 +225,14 @@ export default function ProfileScreen({ me, onAccount }) {
               <input
                 value={phone}
                 placeholder="+375 ___ __ __"
-                onChange={(event) => { setAccountError(''); setAccountNote(''); setPhone(event.target.value) }}
+                onChange={(event) => {
+                  setAccountError('')
+                  setPhoneError('')
+                  setAccountNote('')
+                  setPhone(event.target.value)
+                }}
               />
+              {phoneError ? <span className="error profile-card__msg">{phoneError}</span> : null}
             </label>
             <label>
               Email
